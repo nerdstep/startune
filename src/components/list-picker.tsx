@@ -15,7 +15,8 @@ export function ListPicker({
   onDone,
 }: {
   repoIds: string[];
-  children: React.ReactNode;
+  /** The trigger element, e.g. a <Button>. */
+  children: React.ReactElement;
   align?: "start" | "center" | "end";
   onDone?: () => void;
 }) {
@@ -32,7 +33,7 @@ export function ListPicker({
     return m;
   }, [data, repoIds]);
 
-  if (!data) return <>{children}</>;
+  if (!data) return children;
   const lists = data.lists.filter((l) => l.name.toLowerCase().includes(q.trim().toLowerCase()));
   const exact = data.lists.some((l) => l.name.toLowerCase() === q.trim().toLowerCase());
 
@@ -53,7 +54,7 @@ export function ListPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger render={children} />
       <PopoverContent align={align} className="w-72 p-2" onClick={(e) => e.stopPropagation()}>
         <div className="relative mb-2">
           <SearchIcon className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />

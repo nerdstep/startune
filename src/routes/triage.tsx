@@ -398,8 +398,8 @@ function Done({ tally, mode, onRestart }: { tally: Tally; mode: Mode; onRestart:
         <Button variant="outline" onClick={onRestart}>
           Rebuild {MODES[mode].label.toLowerCase()} queue
         </Button>
-        <Button asChild>
-          <Link to="/stars">Browse all stars</Link>
+        <Button nativeButton={false} render={<Link to="/stars" />}>
+          Browse all stars
         </Button>
       </div>
     </div>

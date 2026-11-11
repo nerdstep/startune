@@ -1,10 +1,9 @@
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
-import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring data-[disabled]:pointer-events-none data-[disabled]:opacity-50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -15,9 +14,9 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/15 text-neon-red border border-destructive/40 hover:bg-destructive/25 hover:shadow-[0_0_20px_-6px_var(--neon-red)]",
         outline:
-          "border border-border bg-white/[0.03] hover:bg-white/[0.07] hover:border-primary/40 hover:text-primary",
+          "border border-border bg-white/[0.03] hover:bg-white/[0.07] hover:border-primary/40 hover:text-primary data-[popup-open]:border-primary/40 data-[popup-open]:text-primary",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-white/[0.06] hover:text-foreground text-muted-foreground",
+        ghost: "hover:bg-white/[0.06] hover:text-foreground text-muted-foreground data-[popup-open]:bg-white/[0.06]",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -32,15 +31,11 @@ const buttonVariants = cva(
   },
 );
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "button";
-  return <Comp data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+type ButtonProps = Omit<ButtonPrimitive.Props, "className"> & VariantProps<typeof buttonVariants> & { className?: string };
+
+/** Use `render={<a href=… />}` (with `nativeButton={false}`) to render a link. */
+function Button({ className, variant, size, ...props }: ButtonProps) {
+  return <ButtonPrimitive data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
 }
 
 export { Button, buttonVariants };

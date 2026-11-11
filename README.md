@@ -4,7 +4,7 @@
 
 StarTune runs entirely on **your own Cloudflare account**: a single Worker with D1 for storage, Workers AI ([Clef](https://blog.cloudflare.com/clef-decision-models/)) for suggestions, and a daily cron for trending data.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_GITHUB_USER/startune)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nerdstep/startune)
 
 > Want to look around first? Run it locally and pick **Explore with demo data**, or open `/?demo=1`. The demo uses generated sample data and never touches GitHub.
 
@@ -90,7 +90,7 @@ worker/        Hono API on Workers
   cron.ts      daily metadata refresh + snapshots + cleanup
   db.ts        D1 queries
 shared/        zod schemas + pure scoring (health, cruft, growth, rediscover, list ideas)
-src/           React 19 + TanStack Router/Query/Virtual + shadcn/ui + Tailwind v4
+src/           React 19 + TanStack Router/Query/Virtual + shadcn/ui on Base UI + Tailwind v4
 migrations/    D1 schema
 ```
 

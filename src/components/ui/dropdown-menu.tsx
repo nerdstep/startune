@@ -1,32 +1,51 @@
+import { Menu } from "@base-ui/react/menu";
 import { CheckIcon } from "lucide-react";
-import { DropdownMenu as P } from "radix-ui";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = P.Root;
-const DropdownMenuTrigger = P.Trigger;
+const DropdownMenu = Menu.Root;
+/** Pass the visible control via `render`, e.g. `<DropdownMenuTrigger render={<Button />}>…</DropdownMenuTrigger>`. */
+const DropdownMenuTrigger = Menu.Trigger;
 
-function DropdownMenuContent({ className, sideOffset = 6, ...props }: React.ComponentProps<typeof P.Content>) {
+const itemBase =
+  "relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-white/[0.07] data-[disabled]:opacity-50 [&_svg]:size-4";
+
+function DropdownMenuContent({
+  className,
+  align = "start",
+  side = "bottom",
+  sideOffset = 6,
+  children,
+}: {
+  className?: string;
+  align?: Menu.Positioner.Props["align"];
+  side?: Menu.Positioner.Props["side"];
+  sideOffset?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <P.Portal>
-      <P.Content
-        sideOffset={sideOffset}
-        className={cn(
-          "glass z-50 min-w-44 overflow-hidden rounded-xl p-1 !bg-popover text-popover-foreground",
-          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          className,
-        )}
-        {...props}
-      />
-    </P.Portal>
+    <Menu.Portal>
+      <Menu.Positioner className="z-50 outline-none" align={align} side={side} sideOffset={sideOffset}>
+        <Menu.Popup
+          className={cn(
+            "glass max-h-[var(--available-height)] min-w-44 origin-[var(--transform-origin)] overflow-y-auto rounded-xl p-1 !bg-popover text-popover-foreground outline-none",
+            "transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
+            className,
+          )}
+        >
+          {children}
+        </Menu.Popup>
+      </Menu.Positioner>
+    </Menu.Portal>
   );
 }
 
-function DropdownMenuItem({ className, variant, ...props }: React.ComponentProps<typeof P.Item> & { variant?: "destructive" }) {
+function DropdownMenuItem({ className, variant, ...props }: Omit<Menu.Item.Props, "className"> & { className?: string; variant?: "destructive" }) {
   return (
-    <P.Item
+    <Menu.Item
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-white/[0.07] data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:text-muted-foreground",
+        itemBase,
+        "[&_svg]:text-muted-foreground",
         variant === "destructive" && "text-neon-red data-[highlighted]:bg-destructive/15 [&_svg]:!text-neon-red",
         className,
       )}
@@ -35,30 +54,30 @@ function DropdownMenuItem({ className, variant, ...props }: React.ComponentProps
   );
 }
 
-function DropdownMenuCheckboxItem({ className, children, ...props }: React.ComponentProps<typeof P.CheckboxItem>) {
+/** A menu item that navigates: `<DropdownMenuLinkItem render={<Link to="/x" />}>…` or with `href`. */
+function DropdownMenuLinkItem({ className, ...props }: Omit<Menu.LinkItem.Props, "className"> & { className?: string }) {
+  return <Menu.LinkItem className={cn(itemBase, "[&_svg]:text-muted-foreground", className)} {...props} />;
+}
+
+function DropdownMenuCheckboxItem({ className, children, ...props }: Omit<Menu.CheckboxItem.Props, "className"> & { className?: string }) {
   return (
-    <P.CheckboxItem
-      className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-lg py-1.5 pr-2 pl-8 text-sm outline-none select-none data-[highlighted]:bg-white/[0.07]",
-        className,
-      )}
-      {...props}
-    >
+    <Menu.CheckboxItem className={cn(itemBase, "pl-8", className)} {...props}>
       <span className="absolute left-2 flex size-4 items-center justify-center">
-        <P.ItemIndicator>
+        <Menu.CheckboxItemIndicator>
           <CheckIcon className="size-4 text-primary" />
-        </P.ItemIndicator>
+        </Menu.CheckboxItemIndicator>
       </span>
       {children}
-    </P.CheckboxItem>
+    </Menu.CheckboxItem>
   );
 }
 
-function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof P.Label>) {
-  return <P.Label className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)} {...props} />;
+function DropdownMenuLabel({ className, ...props }: React.ComponentProps<"div">) {
+  return <div className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)} {...props} />;
 }
-function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typeof P.Separator>) {
-  return <P.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
+
+function DropdownMenuSeparator({ className }: { className?: string }) {
+  return <Menu.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} />;
 }
 
 export {
@@ -67,6 +86,7 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuLinkItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 };

@@ -12,7 +12,15 @@ import {
   StarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { backend, setDemo } from "@/lib/api";
 import { useDerived, useMe, type Progress as P } from "@/lib/queries";
@@ -60,7 +68,7 @@ export function SyncBar({ progress }: { progress: P }) {
   if (!progress.running) return null;
   return (
     <div className="fixed inset-x-0 top-0 z-50">
-      <Progress value={progress.pct} className="h-0.5 rounded-none" />
+      <Progress value={progress.pct} thin />
       <div className="mx-auto mt-2 w-fit rounded-full border border-primary/30 bg-popover px-3 py-1 text-xs text-primary shadow-[0_0_24px_-8px_var(--neon-cyan)] backdrop-blur-xl">
         {progress.label}
       </div>
@@ -85,10 +93,8 @@ function UserMenu() {
   if (!u) return null;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <RepoAvatar owner={u.login} src={u.avatarUrl} className="size-8 rounded-full" />
-        </button>
+      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Account menu">
+        <RepoAvatar owner={u.login} src={u.avatarUrl} className="size-8 rounded-full" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>
@@ -96,19 +102,15 @@ function UserMenu() {
           <div className="font-normal">@{u.login}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/map">
-            <OrbitIcon /> Star map
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings">
-            <SettingsIcon /> Settings
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuLinkItem render={<Link to="/map" />}>
+          <OrbitIcon /> Star map
+        </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem render={<Link to="/settings" />}>
+          <SettingsIcon /> Settings
+        </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={async () => {
+          onClick={async () => {
             if (backend.demo) return setDemo(false);
             await backend.logout();
             window.location.assign("/");

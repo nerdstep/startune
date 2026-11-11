@@ -42,10 +42,8 @@ export function Login() {
         <Card>
           <CardContent className="flex flex-col gap-3">
             {me.data?.oauthEnabled !== false && (
-              <Button size="lg" asChild>
-                <a href="/auth/login">
-                  <GithubIcon /> Sign in with GitHub
-                </a>
+              <Button size="lg" nativeButton={false} render={<a href="/auth/login" />}>
+                <GithubIcon /> Sign in with GitHub
               </Button>
             )}
             {showToken ? (

@@ -219,7 +219,8 @@ function Library() {
 
       <div className="mb-1 flex items-center gap-3 px-3 text-xs text-muted-foreground">
         <Checkbox
-          checked={allSelected ? true : selected.size > 0 ? "indeterminate" : false}
+          checked={allSelected}
+          indeterminate={!allSelected && selected.size > 0}
           onCheckedChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))}
           aria-label="Select all"
         />
@@ -283,10 +284,8 @@ function Library() {
 function Filter({ label, active, children }: { label: string; active: boolean; children: React.ReactNode }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className={cn("h-9", active && "border-primary/50 text-primary")}>
-          {label}
-        </Button>
+      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className={cn("h-9", active && "border-primary/50 text-primary")} />}>
+        {label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         {children}

@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -81,16 +80,14 @@ function Lists() {
                   <div className="line-clamp-1 text-xs text-muted-foreground">{l.description || "No description"}</div>
                 </Link>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon-sm" variant="ghost" aria-label="List actions">
-                      <MoreHorizontalIcon />
-                    </Button>
+                  <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="List actions" />}>
+                    <MoreHorizontalIcon />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setEditing(l)}>
+                    <DropdownMenuItem onClick={() => setEditing(l)}>
                       <PencilIcon /> Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(l)}>
+                    <DropdownMenuItem variant="destructive" onClick={() => setDeleting(l)}>
                       <Trash2Icon /> Delete list
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -176,11 +173,15 @@ function ListDialog({ list, onClose }: { list: StarList | "new" | null; onClose:
             <DialogDescription>Lists live on GitHub. A good description also helps Clef sort repos into it.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label htmlFor="ln">Name</Label>
+            <label htmlFor="ln" className="text-sm font-medium">
+              Name
+            </label>
             <Input id="ln" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={100} required autoFocus />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="ld">Description</Label>
+            <label htmlFor="ld" className="text-sm font-medium">
+              Description
+            </label>
             <Input id="ld" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} placeholder="e.g. Terminal tools and TUIs" />
           </div>
           <label className="flex items-center gap-3 text-sm">

@@ -60,10 +60,8 @@ function Overview() {
           </>
         }
       >
-        <Button asChild variant="magenta">
-          <Link to="/triage" search={{ mode: "cruft" }}>
-            <SparklesIcon /> Start triage
-          </Link>
+        <Button variant="magenta" nativeButton={false} render={<Link to="/triage" search={{ mode: "cruft" }} />}>
+          <SparklesIcon /> Start triage
         </Button>
       </PageHeader>
 
@@ -241,10 +239,8 @@ function AiCallout() {
       ) : (
         <>
           <p className="mt-1 text-xs text-muted-foreground">{suggested.toLocaleString()} unlisted repos have a suggested list.</p>
-          <Button size="sm" className="mt-3" variant="outline" asChild>
-            <Link to="/triage" search={{ mode: "unlisted" }}>
-              Review suggestions <ArrowRightIcon />
-            </Link>
+          <Button size="sm" className="mt-3" variant="outline" nativeButton={false} render={<Link to="/triage" search={{ mode: "unlisted" }} />}>
+            Review suggestions <ArrowRightIcon />
           </Button>
         </>
       )}

@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLinkItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useSpotlight } from "@/lib/use-spotlight";
 import { useDerived, useReview, useUnstar, useUpdateLists, type EStar } from "@/lib/queries";
@@ -118,10 +118,8 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Button variant="outline" onClick={() => review.mutate({ repoIds: [s.id], action: "keep" })} disabled={!!s.reviewedAt}>
           {s.reviewedAt ? `Kept ${ago(s.reviewedAt)}` : "Mark as kept"}
         </Button>
-        <Button asChild>
-          <a href={s.url} target="_blank" rel="noreferrer">
-            Open on GitHub <ExternalLinkIcon />
-          </a>
+        <Button nativeButton={false} render={<a href={s.url} target="_blank" rel="noreferrer" />}>
+          Open on GitHub <ExternalLinkIcon />
         </Button>
       </div>
     </div>
@@ -236,19 +234,15 @@ export function RepoRow({
           </Button>
         </ListPicker>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="ghost" aria-label="More">
-              <MoreHorizontalIcon />
-            </Button>
+          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="More" />}>
+            <MoreHorizontalIcon />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <a href={s.url} target="_blank" rel="noreferrer">
-                <ExternalLinkIcon /> Open on GitHub
-              </a>
-            </DropdownMenuItem>
+            <DropdownMenuLinkItem href={s.url} target="_blank" rel="noreferrer">
+              <ExternalLinkIcon /> Open on GitHub
+            </DropdownMenuLinkItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => unstar.mutate([s.id])}>
+            <DropdownMenuItem variant="destructive" onClick={() => unstar.mutate([s.id])}>
               <StarOffIcon /> Unstar
             </DropdownMenuItem>
           </DropdownMenuContent>
