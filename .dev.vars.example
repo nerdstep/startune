@@ -1,0 +1,8 @@
+# The Deploy to Cloudflare button asks for each of these.
+# GitHub OAuth app (github.com/settings/developers → New OAuth App).
+# Callback URL: https://<your-worker>.<your-subdomain>.workers.dev/auth/callback
+# Don't have one yet? Enter "none" for both and sign in with a personal access token instead.
+GITHUB_CLIENT_ID=none
+GITHUB_CLIENT_SECRET=none
+# Random string used to encrypt GitHub tokens at rest, e.g. `openssl rand -base64 32`
+SESSION_SECRET=change-me-to-a-long-random-string

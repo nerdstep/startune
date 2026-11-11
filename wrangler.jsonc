@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "startune",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "startune",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ai": { "binding": "AI" },
+  "triggers": { "crons": ["17 9 * * *"] },
+  "observability": { "enabled": true },
+  "vars": {
+    "ALLOWED_USERS": "",
+    "CLEF_MODEL": "clef-flash",
+    "GITHUB_SCOPES": "read:user public_repo"
+  }
+  // Secrets (wrangler secret put …): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET
+}

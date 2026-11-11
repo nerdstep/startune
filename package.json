@@ -1,0 +1,77 @@
+{
+  "name": "startune",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Organize, prune and rediscover your GitHub stars. Runs on your own Cloudflare account.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types worker/worker-configuration.d.ts",
+    "seed:local": "node scripts/seed-local.mjs > .wrangler/seed.sql && wrangler d1 execute DB --local --file .wrangler/seed.sql"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-router": "^1.170.46",
+    "@tanstack/react-virtual": "^3.14.26",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "d3-array": "^3.2.5",
+    "d3-scale": "^4.0.3",
+    "d3-selection": "^3.0.1",
+    "d3-zoom": "^3.0.1",
+    "hono": "^4.13.18",
+    "lucide-react": "^1.72.0",
+    "radix-ui": "^1.8.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.68.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "@tanstack/router-plugin": "^1.169.0",
+    "@types/d3-array": "^3.2.2",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-selection": "^3.0.12",
+    "@types/d3-zoom": "^3.0.9",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.160.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "GITHUB_CLIENT_ID": {
+        "description": "Client ID of a GitHub OAuth app (github.com/settings/developers). Callback URL: `https://<worker>.<subdomain>.workers.dev/auth/callback`. Enter `none` to sign in with a personal access token instead."
+      },
+      "GITHUB_CLIENT_SECRET": {
+        "description": "Client secret of the same OAuth app, or `none`."
+      },
+      "SESSION_SECRET": {
+        "description": "Long random string used to encrypt GitHub tokens at rest. Generate one with `openssl rand -base64 32`."
+      },
+      "ALLOWED_USERS": {
+        "description": "Comma-separated GitHub logins allowed to sign in. Leave empty and the first person to sign in owns this install."
+      },
+      "CLEF_MODEL": {
+        "description": "Workers AI decision model: `clef-flash` (fast, cheap) or `clef` (larger)."
+      }
+    }
+  }
+}
