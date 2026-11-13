@@ -122,6 +122,32 @@ export function derive(lib: Library): Derived {
 
 /* ---------- Mutations ---------- */
 
+type Failure = { repoId: string; error: string }
+
+/** GitHub's reason, in terms of what the user can do about it where we know. */
+function explainFailure(error: string): string {
+  // Organizations can restrict OAuth apps; GitHub's message names the org in backticks.
+  if (/OAuth App access restrictions/i.test(error)) {
+    const org = /`([^`]+)` organization/.exec(error)?.[1]
+    return `${org ? `the ${org} organization` : 'its organization'} restricts third-party apps. An owner can approve StarTune for it, or sign in with a personal access token instead.`
+  }
+  return error
+}
+
+/** "Couldn't unstar owner/name: reason" (or "3 repos"), with GitHub's reason for the first. */
+function failureMessage(verb: string, failed: Failure[], names: Map<string, string>): string {
+  const first = failed[0]
+  if (!first) {
+    return ''
+  }
+  const what =
+    failed.length === 1 ? (names.get(first.repoId) ?? '1 repo') : `${failed.length} repos`
+  return `Couldn't ${verb} ${what}: ${explainFailure(first.error)}`
+}
+
+const repoNames = (lib: Library | undefined) =>
+  new Map((lib?.stars ?? []).map((s) => [s.id, s.fullName]))
+
 function errMsg(e: unknown) {
   return e instanceof ApiError || e instanceof Error ? e.message : 'Something went wrong'
 }
@@ -161,18 +187,18 @@ export function useUpdateLists() {
         }
         return lib
       })
-      let failed = 0
+      const names = repoNames(qc.getQueryData<Library>(qk.library))
+      const failed: Failure[] = []
       try {
         for (const part of chunk(v.repoIds, 40)) {
-          const res = await backend.updateLists({ repoIds: part, add, remove })
-          failed += res.failed.length
+          failed.push(...(await backend.updateLists({ repoIds: part, add, remove })).failed)
         }
       } catch (e) {
         rollback()
         throw e
       }
-      if (failed) {
-        toast.warning(`${failed} repo${failed > 1 ? 's' : ''} couldn't be updated`)
+      if (failed.length > 0) {
+        toast.error(failureMessage('update', failed, names))
         void qc.invalidateQueries({ queryKey: qk.library })
       }
       return v
@@ -199,12 +225,23 @@ export function useStar() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (repoIds: string[]) => {
+      const names = new Map(
+        (qc.getQueryData<Library>(qk.library)?.recentlyUnstarred ?? []).map((u) => [
+          u.repoId,
+          u.fullName,
+        ]),
+      )
+      const failed: Failure[] = []
       for (const part of chunk(repoIds, 40)) {
-        await backend.star(part)
+        failed.push(...(await backend.star(part)).failed)
       }
+      return { failed, names }
     },
-    onSuccess: () => {
+    onSuccess: ({ failed, names }) => {
       void qc.invalidateQueries({ queryKey: qk.library })
+      if (failed.length > 0) {
+        toast.error(failureMessage('star', failed, names))
+      }
     },
     onError: (e) => toast.error(errMsg(e)),
   })
@@ -216,6 +253,7 @@ export function useUnstar() {
   const star = useStar()
   return useMutation({
     mutationFn: async (repoIds: string[]) => {
+      const names = repoNames(qc.getQueryData<Library>(qk.library))
       const rollback = patch((lib) => {
         const ids = new Set(repoIds)
         const removed = lib.stars.filter((s) => ids.has(s.id))
@@ -231,28 +269,33 @@ export function useUnstar() {
         return lib
       })
       const ok: string[] = []
+      const failed: Failure[] = []
       try {
         for (const part of chunk(repoIds, 40)) {
-          ok.push(...(await backend.unstar(part)).ok)
+          const res = await backend.unstar(part)
+          ok.push(...res.ok)
+          failed.push(...res.failed)
         }
       } catch (e) {
         rollback()
         throw e
       }
-      if (ok.length < repoIds.length) {
+      if (failed.length > 0) {
+        // Puts the repos GitHub kept back in the list.
         void qc.invalidateQueries({ queryKey: qk.library })
       }
-      return ok
+      return { ok, failed, names }
     },
-    onSuccess: (ok) => {
-      const lib = qc.getQueryData<Library>(qk.library)
-      const label =
-        ok.length === 1
-          ? (lib?.recentlyUnstarred.find((u) => u.repoId === ok[0])?.fullName ?? '1 repo')
-          : `${ok.length} repos`
-      toast(`Unstarred ${label}`, {
-        action: { label: 'Undo', onClick: () => star.mutate(ok) },
-      })
+    onSuccess: ({ ok, failed, names }) => {
+      if (ok.length > 0) {
+        const label = ok.length === 1 ? (names.get(ok[0] ?? '') ?? '1 repo') : `${ok.length} repos`
+        toast(`Unstarred ${label}`, {
+          action: { label: 'Undo', onClick: () => star.mutate(ok) },
+        })
+      }
+      if (failed.length > 0) {
+        toast.error(failureMessage('unstar', failed, names))
+      }
     },
     onError: (e) => toast.error(errMsg(e)),
   })
