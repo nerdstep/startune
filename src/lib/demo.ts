@@ -374,6 +374,18 @@ const wait = (ms: number) => new Promise((res) => setTimeout(res, ms))
 const clone = <T>(v: T): T => structuredClone(v)
 
 const STORE = 'startune:demo-state'
+const FIRST_RUN = 'startune:demo-first-run'
+
+/**
+ * Start the next demo session where a real user starts: the empty Overview, whose "Sync my stars"
+ * plays the first-run scan and then reveals the full generated library. The sign-in page's
+ * "Explore with demo data" uses this; `/?demo=1&empty=1` does it on demand. Plain `/?demo=1`
+ * opens straight onto the full library.
+ */
+export function startDemoAtFirstRun() {
+  sessionStorage.setItem(FIRST_RUN, '1')
+  sessionStorage.removeItem(STORE)
+}
 
 /** A fresh generated library for showcase surfaces (sign-in) that run before any backend exists. */
 export function sampleLibrary(): Library {
@@ -397,8 +409,13 @@ export function createDemoBackend(): Backend {
     today: new Date().toISOString().slice(0, 10),
   }
   const graveyard = new Map<string, Star>()
+  /** In a first-run demo, the library the fake sync reveals (null once revealed, or never). */
+  let pending: Library | null = null
   // Keep demo edits across reloads in this tab
   try {
+    if (new URL(window.location.href).searchParams.get('empty') === '1') {
+      startDemoAtFirstRun()
+    }
     const saved = sessionStorage.getItem(STORE)
     if (saved) {
       const parsed = JSON.parse(saved) as { state: Library; graveyard: Star[] }
@@ -406,6 +423,9 @@ export function createDemoBackend(): Backend {
       for (const g of parsed.graveyard) {
         graveyard.set(g.id, g)
       }
+    } else if (sessionStorage.getItem(FIRST_RUN) === '1') {
+      pending = state
+      state = { ...state, stars: [], lists: [], lastSyncedAt: null }
     }
   } catch {
     /* ignore */
@@ -433,6 +453,42 @@ export function createDemoBackend(): Backend {
     return { ok, failed: [] }
   }
 
+  /**
+   * The first-run demo's sync, paced like a real one: 100 stars per step, then the lists, then a
+   * tidy-up that reveals the whole library (kept across reloads from then on).
+   */
+  const firstRunSync = async (
+    full: Library,
+    phase: 'stars' | 'lists' | 'finish',
+    cursor: string | null,
+  ) => {
+    const total = full.stars.length
+    if (phase === 'stars') {
+      await wait(900)
+      const from = cursor ? Number(cursor) : 0
+      const processed = Math.min(100, total - from)
+      const next = from + processed
+      return next >= total
+        ? { phase: 'lists' as const, cursor: null, processed, total }
+        : { phase: 'stars' as const, cursor: String(next), processed, total }
+    }
+    if (phase === 'lists') {
+      await wait(700)
+      return {
+        phase: 'lists' as const,
+        cursor: null,
+        processed: full.lists.length,
+        total: full.lists.length,
+      }
+    }
+    await wait(500)
+    state = { ...full, lastSyncedAt: new Date().toISOString() }
+    pending = null
+    sessionStorage.removeItem(FIRST_RUN)
+    persist()
+    return { phase: 'done' as const, cursor: null, processed: 0, total: 0 }
+  }
+
   const api: Backend = {
     demo: true,
     me: async () => ({
@@ -445,6 +501,9 @@ export function createDemoBackend(): Backend {
       return clone(state)
     },
     sync: async ({ phase, cursor }) => {
+      if (pending) {
+        return firstRunSync(pending, phase, cursor)
+      }
       await wait(600)
       if (phase === 'stars') {
         const n = cursor ? Number(cursor) : 0

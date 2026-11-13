@@ -17,7 +17,7 @@ import type {
 import { hc } from 'hono/client'
 
 import type { AppType } from '../../worker/index'
-import { createDemoBackend } from './demo'
+import { createDemoBackend, startDemoAtFirstRun } from './demo'
 
 export class ApiError extends Error {
   constructor(
@@ -113,13 +113,17 @@ export function isDemo(): boolean {
   return localStorage.getItem(DEMO_KEY) === '1'
 }
 
-export function setDemo(on: boolean) {
+/** Enter or leave demo mode. `firstRun` starts the demo at the empty Overview (startDemoAtFirstRun). */
+export function setDemo(on: boolean, opts: { firstRun?: boolean } = {}) {
   if (on) {
     localStorage.setItem(DEMO_KEY, '1')
   } else {
     localStorage.removeItem(DEMO_KEY)
   }
   sessionStorage.removeItem('startune:demo-state')
+  if (on && opts.firstRun) {
+    startDemoAtFirstRun()
+  }
   window.location.assign('/')
 }
 

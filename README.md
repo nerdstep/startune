@@ -10,7 +10,7 @@ StarTune runs entirely on **your own Cloudflare account**: a single Worker with 
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nerdstep/startune)
 
-> Want to look around first? Run it locally and pick **Explore with demo data**, or open `/?demo=1`. The demo uses generated sample data and never touches GitHub.
+> Want to look around first? Run it locally and pick **Explore with demo data**, which starts where a new user does, with the first sync, or open `/?demo=1` to go straight to a full library (`/?demo=1&empty=1` replays the first sync). The demo uses generated sample data and never touches GitHub.
 
 ## What it does
 

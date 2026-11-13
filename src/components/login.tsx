@@ -177,7 +177,7 @@ export function Login() {
                 </Button>
               )
             )}
-            <Button size="lg" variant="outline" onClick={() => setDemo(true)}>
+            <Button size="lg" variant="outline" onClick={() => setDemo(true, { firstRun: true })}>
               <PlayIcon /> Explore with demo data
             </Button>
           </div>
