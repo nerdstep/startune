@@ -1,9 +1,4 @@
-<h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/startune-logo.svg" />
-    <img alt="StarTune" src="brand/startune-logo-light.svg" width="300" />
-  </picture>
-</h1>
+# ![StarTune](brand/startune-logo-card.svg)
 
 **Bring your GitHub stars into focus.** Sort them into GitHub Lists, clear out the dead ones, see what's taking off, and find the gems you forgot about.
 

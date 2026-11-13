@@ -9,6 +9,7 @@ src/styles.css; change them together.
 
 Writes, next to this script:
     startune-logo.svg         for dark backgrounds (transparent, the in-app lockup)
+    startune-logo-card.svg    the lockup on its own dark card; reads on any background (README)
     startune-logo-light.svg   for light backgrounds (mark on its Black Field tile, ink wordmark)
     startune-social.svg       1280x640 card (GitHub social preview); export a PNG from it, see README
 """
@@ -32,6 +33,7 @@ LIME = "#c8ff3a"  # --primary
 STARLIGHT = "#e8eae6"  # rendered --foreground
 BLACK_FIELD = "#050607"  # --background
 DUST = "#8d938f"  # --muted-foreground
+HAIRLINE = "#23262a"  # --border
 CLASS_COLOURS = {  # HEALTH_CHART, with a rough share of a typical library
     "thriving": ("#6ea8ff", 0.38),
     "active": ("#e9e4d4", 0.28),
@@ -202,11 +204,33 @@ def social(geist: Geist) -> str:
     )
 
 
+def card(geist: Geist, scale: float = 3.0) -> str:
+    """The lockup on its own Black Field card with a hairline edge: reads the same on any page
+    colour, so it needs no theme switching. (GitHub's <picture> switching follows the OS
+    colour scheme, not GitHub's theme, so a light GitHub page on a dark OS gets the
+    light-text logo on white.)"""
+    pad_x, pad_y, radius = 16.0, 14.0, 8.0  # in lockup units (the mark is 24)
+    body, lw = lockup(geist, STARLIGHT)
+    w, h = lw + pad_x * 2, 24 + pad_y * 2
+    edge = 1 / scale  # 1px at the default size
+    return svg(
+        w,
+        h,
+        f'<rect x="{num(edge / 2)}" y="{num(edge / 2)}" width="{num(w - edge)}"'
+        f' height="{num(h - edge)}" rx="{num(radius)}" fill="{BLACK_FIELD}"'
+        f' stroke="{HAIRLINE}" stroke-width="{num(edge)}"/>'
+        f'<g transform="translate({num(pad_x)} {num(pad_y)})">{body}</g>',
+        w * scale,
+        h * scale,
+    )
+
+
 def main() -> None:
     geist = Geist(FONT)
     files = {}
     body, w = lockup(geist, STARLIGHT)
     files["startune-logo.svg"] = svg(w, 24, body, w * 4, 96)
+    files["startune-logo-card.svg"] = card(geist)
     body, w = lockup(geist, BLACK_FIELD, tile=True)
     files["startune-logo-light.svg"] = svg(w, 24, body, w * 4, 96)
     files["startune-social.svg"] = social(geist)

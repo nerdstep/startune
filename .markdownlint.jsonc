@@ -14,9 +14,5 @@
   },
   "first-line-heading": {
     "front_matter_title": "^title\\s*[:=]"
-  },
-  // The README's theme-aware logo needs <picture>; Markdown images can't switch with the theme.
-  "no-inline-html": {
-    "allowed_elements": ["h1", "picture", "source", "img"]
   }
 }
