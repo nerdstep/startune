@@ -1,4 +1,12 @@
-import { BrainCircuitIcon, KeyRoundIcon, OrbitIcon, PlayIcon, UndoIcon } from 'lucide-react'
+import {
+  BrainCircuitIcon,
+  ExternalLinkIcon,
+  FolderGit2Icon,
+  KeyRoundIcon,
+  OrbitIcon,
+  PlayIcon,
+  UndoIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -21,10 +29,18 @@ const FEATURES = [
     text: 'Triage cruft and unlisted repos from the keyboard. Every unstar can be undone.',
   },
   {
+    icon: FolderGit2Icon,
+    text: 'Your own repos: star history, who is starring them, and what is waiting on you.',
+  },
+  {
     icon: BrainCircuitIcon,
     text: 'Clef on Workers AI suggests a List for each repo, inside your own Cloudflare account.',
   },
 ]
+
+/** A classic token with the two scopes StarTune needs, pre-filled on GitHub. */
+const NEW_TOKEN_URL =
+  'https://github.com/settings/tokens/new?scopes=public_repo,read:user&description=StarTune'
 
 function useViewport() {
   const [v, setV] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -38,12 +54,15 @@ function useViewport() {
 
 export function Login() {
   const me = useMe()
-  const sky = useMemo(() => derive(sampleLibrary()).stars, [])
+  const sample = useMemo(() => derive(sampleLibrary()).stars, [])
   const params = new URLSearchParams(window.location.search)
   const oauth = me.data?.oauthEnabled !== false
   const [showToken, setShowToken] = useState(params.get('auth') === 'token')
   const view = useViewport()
   const wide = view.w >= 1024
+  // The field fills the space right of the text column, sized to it so its caption sits under it.
+  const inset = Math.min(560, view.w * 0.38)
+  const fieldHeight = Math.min(view.h, Math.round((view.w - inset) * 0.78))
   const [token, setToken] = useState('')
   const [error, setError] = useState<string | null>(params.get('auth_error'))
   const [busy, setBusy] = useState(false)
@@ -61,29 +80,65 @@ export function Login() {
     }
   }
 
+  const tokenForm = (
+    <form onSubmit={(e) => void submit(e)} className="mt-6 flex flex-col gap-2">
+      <label htmlFor="pat" className="text-sm font-medium">
+        Personal access token
+      </label>
+      <Input
+        id="pat"
+        type="password"
+        placeholder="ghp_… or github_pat_…"
+        value={token}
+        onChange={(e) => setToken(e.target.value)}
+        autoComplete="off"
+        autoFocus
+      />
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        A classic token with the <code className="font-mono text-foreground">public_repo</code> and{' '}
+        <code className="font-mono text-foreground">read:user</code> scopes.{' '}
+        <a
+          href={NEW_TOKEN_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-foreground underline underline-offset-4 hover:text-primary"
+        >
+          Create one on GitHub <ExternalLinkIcon className="size-3" />
+        </a>
+        . It's encrypted at rest on your own Cloudflare account.
+      </p>
+      <Button type="submit" disabled={busy || token.length < 20} className="self-start">
+        <KeyRoundIcon /> {busy ? 'Signing in…' : 'Sign in with token'}
+      </Button>
+    </form>
+  )
+
   return (
     <div className="relative min-h-dvh overflow-hidden">
       {wide && (
-        <div className="absolute inset-0">
-          <StarField stars={sky} ambient height={view.h} insetLeft={Math.min(640, view.w * 0.42)} />
+        <div className="absolute inset-0 flex items-center">
+          <StarField stars={sample} ambient height={fieldHeight} insetLeft={inset} />
         </div>
       )}
-      <div className="pointer-events-none relative z-10 flex min-h-dvh flex-col px-6 py-6 md:px-12 lg:max-w-xl lg:py-10 *:pointer-events-auto">
-        <Logo />
+      <div className="pointer-events-none relative z-10 flex min-h-dvh flex-col px-6 py-6 md:px-12 lg:max-w-xl lg:py-8 *:pointer-events-auto">
+        <Logo large />
         {!wide && (
           <div className="-mx-6 mt-5 border-y md:-mx-12">
-            <StarField stars={sky} ambient height={260} />
+            <StarField stars={sample} ambient height={280} />
           </div>
         )}
-        <div className="my-auto max-w-md py-8">
+        {/* Top-anchored on wide screens, so opening the token form grows the column downwards. */}
+        <div className="my-auto max-w-md py-8 lg:my-0 lg:pt-[clamp(1.5rem,14vh-4rem,7rem)]">
           <h1 className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
             Bring your stars into focus.
           </h1>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Sort your GitHub stars into Lists, clear out the dead ones, see what's taking off, and
-            find the gems you forgot about.
+            Sort your GitHub stars into Lists, clear out the dead ones, find the gems you forgot
+            about, and watch your own repos grow.
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
+          {/* Without OAuth, the token form opens in place of its button, ahead of the demo. */}
+          {!oauth && showToken && tokenForm}
+          <div className={showToken && !oauth ? 'mt-3' : 'mt-6 flex flex-wrap gap-2'}>
             {oauth ? (
               <Button
                 size="lg"
@@ -92,11 +147,28 @@ export function Login() {
               >
                 <GithubIcon /> Sign in with GitHub
               </Button>
-            ) : null}
-            <Button size="lg" variant={oauth ? 'outline' : 'default'} onClick={() => setDemo(true)}>
+            ) : (
+              !showToken && (
+                <Button size="lg" onClick={() => setShowToken(true)}>
+                  <KeyRoundIcon /> Sign in with a token
+                </Button>
+              )
+            )}
+            <Button size="lg" variant="outline" onClick={() => setDemo(true)}>
               <PlayIcon /> Explore with demo data
             </Button>
           </div>
+          {oauth && !showToken && (
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-2 px-0 text-muted-foreground"
+              onClick={() => setShowToken(true)}
+            >
+              Use a personal access token instead
+            </Button>
+          )}
+          {oauth && showToken && tokenForm}
           {error && (
             <p
               role="alert"
@@ -113,42 +185,26 @@ export function Login() {
               </li>
             ))}
           </ul>
-          {showToken ? (
-            <form onSubmit={(e) => void submit(e)} className="mt-6 flex flex-col gap-2">
-              <label htmlFor="pat" className="text-sm font-medium">
-                Personal access token
-              </label>
-              <Input
-                id="pat"
-                type="password"
-                placeholder="ghp_… or github_pat_…"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                autoComplete="off"
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                A classic token needs the{' '}
-                <code className="font-mono text-foreground">public_repo</code> and{' '}
-                <code className="font-mono text-foreground">read:user</code> scopes. It's encrypted
-                at rest on your own Cloudflare account.
-              </p>
-              <Button type="submit" variant="outline" disabled={busy || token.length < 20}>
-                <KeyRoundIcon /> {busy ? 'Signing in…' : 'Sign in with token'}
-              </Button>
-            </form>
-          ) : (
-            <Button variant="ghost" className="mt-4 -ml-3" onClick={() => setShowToken(true)}>
-              <KeyRoundIcon />{' '}
-              {oauth
-                ? 'Use a personal access token instead'
-                : 'Sign in with a personal access token'}
-            </Button>
-          )}
         </div>
-        <p className="max-w-md text-xs text-muted-foreground">
-          Self-hosted on your Cloudflare account. The demo and the sky on this page use generated
-          sample data.
+        {/* Every install shows this page: credit, and a way to the source. */}
+        <p className="mt-auto pt-6 text-xs text-muted-foreground">
+          <a
+            href="https://github.com/nerdstep/startune"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-4 hover:text-foreground hover:decoration-foreground"
+          >
+            Open source
+          </a>{' '}
+          by{' '}
+          <a
+            href="https://github.com/nerdstep"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-muted-foreground/40 underline-offset-4 hover:text-foreground hover:decoration-foreground"
+          >
+            @nerdstep
+          </a>
         </p>
       </div>
     </div>

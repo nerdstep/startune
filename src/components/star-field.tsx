@@ -255,6 +255,38 @@ function StarFieldImpl({
         .map((s) => s.id),
     [stars],
   )
+  /**
+   * Ambient tour: one labelled star at a time (the risers, then the most popular), so a visitor
+   * sees what the field reads before signing in. Pauses while a star is hovered.
+   */
+  const tourIds = useMemo(() => {
+    if (!ambient) {
+      return []
+    }
+    const popular = [...stars]
+      .filter((s) => !s.isArchived && !risers.includes(s.id))
+      .sort((a, b) => b.stars - a.stars)
+      .slice(0, 3)
+      .map((s) => s.id)
+    return [...risers, ...popular]
+  }, [ambient, stars, risers])
+  const [tour, setTour] = useState(0)
+  const hovering = useRef(false)
+  useEffect(() => {
+    if (tourIds.length === 0 || reduce) {
+      return
+    }
+    const id = setInterval(() => {
+      if (!hovering.current) {
+        setTour((t) => t + 1)
+      }
+    }, 4500)
+    return () => clearInterval(id)
+  }, [tourIds, reduce])
+  const tourId = tourIds.length > 0 ? (tourIds[tour % tourIds.length] ?? null) : null
+  /** The slot a star's callout last used, so a callout on a moving star stays put beside it. */
+  const lastSlot = useRef<{ id: string; i: number } | null>(null)
+
   /** Keyboard order: the labelled risers first, then by popularity. */
   const order = useMemo(() => {
     const rest = [...stars]
@@ -288,18 +320,30 @@ function StarFieldImpl({
           l: Math.min(70, Math.max(44, w * 0.09)) + insetLeft,
           r: wide ? ctx.measureText('Pushed recently').width + 24 : 12,
           t: wide ? 64 : 28,
-          b: 44,
+          // Ambient adds a row under "Year starred" for the sample caption.
+          b: ambient ? 64 : 44,
         }
     const fr = fit(yaw, pitch, w, h, gutter)
     const P = (x: number, y: number, z: number) => {
       const r = rotate(x, y, z, yaw, pitch)
       return { sx: fr.ox + r.u * fr.kx, sy: fr.oy + r.v * fr.ky, scale: r.f, depth: r.depth }
     }
-    // Areas callouts must avoid: the Reset button and every axis label drawn below.
-    const blocked: Array<{ x: number; y: number; w: number; h: number }> =
-      ambient || compact ? [] : [{ x: w - 124, y: 0, w: 124, h: 44 }]
-    const text = (t: string, x: number, y: number, align: CanvasTextAlign) => {
+    // Areas callouts must avoid: the Reset button, any page text over the inset, and every axis label.
+    const blocked: Array<{ x: number; y: number; w: number; h: number }> = [
+      ...(ambient || compact ? [] : [{ x: w - 124, y: 0, w: 124, h: 44 }]),
+      ...(insetLeft > 0 ? [{ x: 0, y: 0, w: insetLeft + 8, h }] : []),
+    ]
+    const text = (t: string, x: number, y: number, align: CanvasTextAlign, halo = false) => {
       ctx.textAlign = align
+      if (halo) {
+        // Titles are drawn over the points: a field-coloured outline keeps them legible.
+        const fill = ctx.fillStyle
+        ctx.strokeStyle = '#050607'
+        ctx.lineWidth = 4
+        ctx.lineJoin = 'round'
+        ctx.strokeText(t, x, y)
+        ctx.fillStyle = fill
+      }
       ctx.fillText(t, x, y)
       const tw = ctx.measureText(t).width
       let left = x
@@ -376,22 +420,23 @@ function StarFieldImpl({
       seg({ sx: a.sx - 4, sy: a.sy }, a)
       text(fmtNum(10 ** v), a.sx - 7, a.sy + 4, 'right')
     }
-    ctx.font = "500 11px 'Geist Variable', ui-sans-serif, sans-serif"
-    ctx.fillStyle = '#c5cac6'
-    const top = P(ax, 1, az)
-    if (!compact) {
-      text('Popularity (stars)', Math.max(8, top.sx - 30), Math.max(14, top.sy - 10), 'left')
-    }
-    const yrEnd = P(1, -1, -1)
-    if (!compact) {
-      text('Year starred', Math.min(w - 8, yrEnd.sx), yrEnd.sy + 34, 'right')
-    }
-    if (wide && !compact) {
-      const near = P(1, -1, -1)
-      const far = P(1, -1, 1)
-      text('Pushed recently', near.sx + 10, near.sy + 4, 'left')
-      ctx.fillStyle = '#8d938f'
-      text('Stale', far.sx + 10, far.sy + 4, 'left')
+    // Axis titles go on top of the points (drawn after them), so "Stale" never sinks into the cloud.
+    const titles = () => {
+      if (compact) {
+        return
+      }
+      ctx.font = "500 11px 'Geist Variable', ui-sans-serif, sans-serif"
+      ctx.fillStyle = '#c5cac6'
+      const top = P(ax, 1, az)
+      text('Popularity (stars)', Math.max(8, top.sx - 30), Math.max(14, top.sy - 10), 'left', true)
+      const yrEnd = P(1, -1, -1)
+      text('Year starred', Math.min(w - 8, yrEnd.sx), yrEnd.sy + 34, 'right', true)
+      if (wide) {
+        const far = P(1, -1, 1)
+        text('Pushed recently', yrEnd.sx + 10, yrEnd.sy + 4, 'left', true)
+        ctx.fillStyle = '#8d938f'
+        text('Stale', far.sx + 10, far.sy + 4, 'left', true)
+      }
     }
 
     // Points, far to near. Hidden legend keys drop out entirely (no marks, no hover, no callouts).
@@ -453,6 +498,7 @@ function StarFieldImpl({
       }
     }
     projected.current = proj
+    titles()
 
     // Callouts sit in the emptiest nearby slot; leaders run outward.
     const boxes = blocked
@@ -484,7 +530,7 @@ function StarFieldImpl({
       ctx.font = "11px 'Geist Mono Variable', ui-monospace, monospace"
       const bw = Math.max(tw1, ctx.measureText(t2).width + 14) + 22
       const bh = 40
-      let best: { x: number; y: number; score: number } | null = null
+      let best: { x: number; y: number; score: number; i: number } | null = null
       // [x, y, side, base cost]: near the point first, then the reserved band above the cube (empty by construction).
       const slots: Array<[number, number, 1 | -1, number]> = []
       for (const side of [1, -1] as const) {
@@ -502,12 +548,15 @@ function StarFieldImpl({
       for (const ox of [-bw - 30, -bw / 2, 30, 140, -bw - 140]) {
         slots.push([q.sx + ox, 10, ox < -bw / 2 ? -1 : 1, 6])
       }
-      for (const [x, y, side, base] of slots) {
+      // The active callout keeps last frame's slot unless another is clearly better: on a turning
+      // field it travels with its star instead of hopping between slots.
+      const sticky = accent && lastSlot.current?.id === s.id ? lastSlot.current.i : -1
+      for (const [i, [x, y, side, base]] of slots.entries()) {
         const m = compact ? 10 : 4
         if (x < m || x + bw > w - m || y < m || y + bh > h - 30) {
           continue
         }
-        let score = base
+        let score = base - (i === sticky ? 30 : 0)
         for (const o of proj) {
           if (o.sx > x - 4 && o.sx < x + bw + 4 && o.sy > y - 4 && o.sy < y + bh + 4) {
             score += 25
@@ -538,7 +587,7 @@ function StarFieldImpl({
           }
         }
         if (!best || score < best.score) {
-          best = { x, y, score }
+          best = { x, y, score, i }
         }
       }
       if (optional && (!best || best.score >= 1000)) {
@@ -549,7 +598,11 @@ function StarFieldImpl({
           x: Math.max(4, Math.min(w - bw - 4, q.sx + 20)),
           y: Math.max(4, q.sy - bh - 20),
           score: 0,
+          i: -1,
         }
+      }
+      if (accent) {
+        lastSlot.current = { id: s.id, i: best.i }
       }
       boxes.push({ x: best.x, y: best.y, w: bw, h: bh })
       const leadX = best.x > q.sx ? best.x : best.x + bw
@@ -582,7 +635,8 @@ function StarFieldImpl({
       return true
     }
 
-    const pinned = hover?.p.s.id ?? highlightId ?? pinnedId
+    const pinned =
+      hover?.p.s.id ?? highlightId ?? pinnedId ?? (view.current.intro >= 1 ? tourId : null)
     const active = pinned ? proj.find((x) => x.p.s.id === pinned) : undefined
     if (active) {
       // Drop-line to the floor: where it sits in time and recency.
@@ -650,10 +704,11 @@ function StarFieldImpl({
       ctx.textAlign = 'left'
       ctx.fillText(
         ambient
-          ? `Sample sky · ${points.length} generated repos`
+          ? `Sample star field · ${points.length} generated repos`
           : `yaw ${Math.round((yaw * 180) / Math.PI)}°  pitch ${Math.round((pitch * 180) / Math.PI)}°  ·  ${proj.length} stars`,
-        12 + (ambient ? insetLeft : 0),
-        h - 12,
+        // Beside page text (insetLeft), line up with the field rather than the text column.
+        insetLeft > 0 ? gutter.l : 12,
+        h - 14,
       )
     }
   }, [
@@ -677,6 +732,7 @@ function StarFieldImpl({
     highlightSet,
     ringSet,
     pinnedId,
+    tourId,
     colorBy,
     topLangs,
     hiddenKeys,
@@ -695,7 +751,7 @@ function StarFieldImpl({
       if (outcome && !reduce && performance.now() - outcome.at < OUTCOME_MS) {
         busy = true
       }
-      if (ambient && !reduce && !drag.current) {
+      if (ambient && !reduce && !drag.current && !hovering.current) {
         v.yaw += 0.0016
         busy = true
       }
@@ -788,7 +844,7 @@ function StarFieldImpl({
             : `3D star field of ${visibleCount} starred repositories: year starred left to right, popularity bottom to top, recently pushed nearest to you. Arrow keys rotate; [ and ] step through stars; Enter opens the selected star.`
         }
         style={{ width: '100%', height }}
-        className={`block touch-none outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset ${hover ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`block touch-none outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset ${hover && !ambient ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
         onPointerDown={(e) => {
           drag.current = { x: e.clientX, y: e.clientY, moved: false }
           vel.current = { yaw: 0, pitch: 0 }
@@ -817,12 +873,14 @@ function StarFieldImpl({
             kick()
             return
           }
-          if (ambient) {
-            return
-          }
           const n = nearest(e.clientX - r.left, e.clientY - r.top)
           if (n?.p.s.id !== hover?.p.s.id) {
             setHover(n)
+            if (ambient) {
+              // Hovering a sample star pauses the turn so its callout can be read.
+              hovering.current = n != null
+              kick()
+            }
           }
         }}
         onPointerUp={(e) => {
@@ -837,7 +895,11 @@ function StarFieldImpl({
           }
           kick()
         }}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={() => {
+          setHover(null)
+          hovering.current = false
+          kick()
+        }}
         onBlur={() => setHover(null)}
         onKeyDown={(e) => {
           if (e.key === ']' || e.key === '[') {
@@ -876,7 +938,7 @@ function StarFieldImpl({
       )}
       <span className="sr-only" aria-live="polite">
         {hover
-          ? `${hover.p.s.fullName}, ${fmtNum(hover.p.s.stars)} stars, ${HEALTH_LABEL[hover.p.s.health]} (class ${HEALTH_CLASS[hover.p.s.health]}). Press Enter to open.`
+          ? `${hover.p.s.fullName}, ${fmtNum(hover.p.s.stars)} stars, ${HEALTH_LABEL[hover.p.s.health]} (class ${HEALTH_CLASS[hover.p.s.health]}).${ambient ? '' : ' Press Enter to open.'}`
           : ''}
       </span>
     </div>

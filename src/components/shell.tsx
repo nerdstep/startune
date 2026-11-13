@@ -61,9 +61,13 @@ const MARK_CORNERS = [
   { d: 'M6.5 23H1v-5.5', lock: 'group-hover/logo:translate-x-px group-hover/logo:-translate-y-px' },
 ]
 
-function LogoMark() {
+function LogoMark({ large }: { large?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden className="size-6 shrink-0 overflow-visible">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className={cn('shrink-0 overflow-visible', large ? 'size-9' : 'size-6')}
+    >
       <path
         d={MARK_STAR}
         className="fill-primary stroke-primary"
@@ -94,12 +98,25 @@ function LogoMark() {
   )
 }
 
-/** The mark and wordmark. With `home`, it links to Overview and answers hover and focus. */
-export function Logo({ className, home }: { className?: string; home?: boolean }) {
+/**
+ * The mark and wordmark. With `home`, it links to Overview and answers hover and focus. `large`
+ * is the entry screen's size: 36px, 1.5x the grid, so the frame still lands on whole pixels.
+ */
+export function Logo({
+  className,
+  home,
+  large,
+}: {
+  className?: string
+  home?: boolean
+  large?: boolean
+}) {
   const content = (
     <>
-      <LogoMark />
-      <span className="text-[15px] font-semibold tracking-tight">StarTune</span>
+      <LogoMark large={large} />
+      <span className={cn('font-semibold tracking-tight', large ? 'text-xl' : 'text-[15px]')}>
+        StarTune
+      </span>
     </>
   )
   if (home) {
@@ -115,7 +132,9 @@ export function Logo({ className, home }: { className?: string; home?: boolean }
       </div>
     )
   }
-  return <div className={cn('flex items-center gap-2', className)}>{content}</div>
+  return (
+    <div className={cn('flex items-center', large ? 'gap-3' : 'gap-2', className)}>{content}</div>
+  )
 }
 
 export function SyncBar({ progress }: { progress: P }) {
