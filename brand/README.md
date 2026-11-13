@@ -7,7 +7,8 @@ the "StarTune" wordmark in Geist SemiBold. The live version is the `Logo` compon
 
 | File | Use it on |
 | --- | --- |
-| `startune-logo-card.svg` | Anywhere you can't control the background, such as the README. The logo on its own dark card with a hairline edge, so it reads the same on light and dark pages. |
+| `startune-banner.svg` | The README heading. The social card's star field, logo and tagline in a 1280 × 180 strip with a hairline edge, so it reads the same on light and dark pages. |
+| `startune-logo-card.svg` | Anywhere else you can't control the background. The logo on its own dark card with a hairline edge. |
 | `startune-logo.svg` | Dark backgrounds. Transparent, off-white wordmark, as in the app. |
 | `startune-logo-light.svg` | Light backgrounds. The mark sits on its black tile, so the lime never touches white; black wordmark. |
 | `startune-social.svg` | 1280 × 640 card with the tagline over a field of class-coloured stars. |
@@ -16,7 +17,7 @@ the "StarTune" wordmark in Geist SemiBold. The live version is the `Logo` compon
 In the SVGs the wordmark is converted to outlines, so the files look the same on machines without
 Geist installed. Don't use the light-text version on white: the wordmark disappears.
 
-The README uses the card rather than switching logos with `<picture>`, because GitHub picks the `<picture>` source from the operating system's color scheme, not from the GitHub theme. With GitHub set to light on a dark OS, the light-text logo lands on a white page.
+The banner and the card have their own background rather than switching logos with `<picture>`, because GitHub picks the `<picture>` source from the operating system's color scheme, not from the GitHub theme. With GitHub set to light on a dark OS, the light-text logo lands on a white page.
 
 ## Regenerating
 

@@ -1,6 +1,6 @@
-# ![StarTune](brand/startune-logo-card.svg)
+# ![StarTune: bring your stars into focus](brand/startune-banner.svg)
 
-**Bring your GitHub stars into focus.** Sort them into GitHub Lists, clear out the dead ones, see what's taking off, and find the gems you forgot about.
+StarTune sorts your GitHub stars into GitHub Lists, clears out the dead ones, shows what's taking off, finds the gems you forgot about, and tracks how your own repos are doing.
 
 StarTune runs entirely on **your own Cloudflare account**: a single Worker with D1 for storage, Workers AI ([Clef](https://blog.cloudflare.com/clef-decision-models/)) for suggestions, and a daily cron for trending data.
 

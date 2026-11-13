@@ -11,6 +11,7 @@ Writes, next to this script:
     startune-logo.svg         for dark backgrounds (transparent, the in-app lockup)
     startune-logo-card.svg    the lockup on its own dark card; reads on any background (README)
     startune-logo-light.svg   for light backgrounds (mark on its Black Field tile, ink wordmark)
+    startune-banner.svg       1280x180 README banner: the social card's field, logo and tagline
     startune-social.svg       1280x640 card (GitHub social preview); export a PNG from it, see README
 """
 
@@ -204,6 +205,38 @@ def social(geist: Geist) -> str:
     )
 
 
+def banner(geist: Geist) -> str:
+    """The README banner: the social card's point cloud with the logo and tagline on one line, on
+    its own Black Field with a hairline edge and rounded corners, so it reads on light and dark
+    pages alike (see card() for why the README avoids theme switching)."""
+    W, H, scale, radius = 1280, 180, 3.0, 16
+    body, lw = lockup(geist, STARLIGHT)
+    tag_size, gap = 26.0, 36  # gap either side of the divider
+    _, tw = geist.text(TAGLINE, tag_size, 400, 0, 0)
+    group_w = lw * scale + gap * 2 + tw
+    lx = (W - group_w) / 2
+    ly = (H - 24 * scale) / 2
+    div_x = lx + lw * scale + gap
+    # The tagline's baseline sits level with the wordmark's.
+    word_base = geist.baseline(WORD_SIZE, LINE_H, LINE_TOP)
+    tag_d, _ = geist.text(TAGLINE, tag_size, 400, div_x + gap, ly + word_base * scale)
+    return svg(
+        W,
+        H,
+        f'<defs><clipPath id="edge"><rect width="{W}" height="{H}" rx="{radius}"/></clipPath></defs>'
+        f'<g clip-path="url(#edge)"><rect width="{W}" height="{H}" fill="{BLACK_FIELD}"/>'
+        + point_cloud(W, H, (W / 2, H / 2, group_w / 2 + 70, 62), n=90)
+        + "</g>"
+        + f'<rect x=".5" y=".5" width="{W - 1}" height="{H - 1}" rx="{radius}" fill="none"'
+        f' stroke="{HAIRLINE}"/>'
+        + f'<g transform="translate({num(lx)} {num(ly)}) scale({num(scale)})">{body}</g>'
+        + f'<path d="M{num(div_x)} {num(H / 2 - 22)}v44" stroke="{HAIRLINE}" stroke-width="1.5"/>'
+        + f'<path d="{tag_d}" fill="{DUST}"/>',
+        W,
+        H,
+    )
+
+
 def card(geist: Geist, scale: float = 3.0) -> str:
     """The lockup on its own Black Field card with a hairline edge: reads the same on any page
     colour, so it needs no theme switching. (GitHub's <picture> switching follows the OS
@@ -233,6 +266,7 @@ def main() -> None:
     files["startune-logo-card.svg"] = card(geist)
     body, w = lockup(geist, BLACK_FIELD, tile=True)
     files["startune-logo-light.svg"] = svg(w, 24, body, w * 4, 96)
+    files["startune-banner.svg"] = banner(geist)
     files["startune-social.svg"] = social(geist)
     for name, text in files.items():
         (HERE / name).write_text(text, encoding="utf-8", newline="\n")
