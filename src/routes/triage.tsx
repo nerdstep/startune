@@ -1,13 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   BrainCircuitIcon,
-  RocketIcon,
   CheckIcon,
   ClockIcon,
   ExternalLinkIcon,
-  GitForkIcon,
   ListPlusIcon,
-  PartyPopperIcon,
   SkipForwardIcon,
   StarIcon,
   StarOffIcon,
@@ -17,7 +14,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { GrowthBadge, HealthBadge, LangDot, PageHeader, RepoAvatar } from "@/components/bits";
+import { HEALTH_LABEL } from "@shared/scoring";
+import { GrowthBadge, LangDot, PageHeader, RepoAvatar } from "@/components/bits";
+import { useOpenRepo } from "@/components/repo";
+import { DORMANT_ALPHA, StarField, type Outcome } from "@/components/star-field";
 import { ListPicker } from "@/components/list-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,9 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDerived, useReview, useUnstar, useUpdateLists, type Derived, type EStar } from "@/lib/queries";
+import { HEALTH_CHART, HEALTH_CLASS } from "@/lib/palette";
 import { useSyncContext } from "@/lib/sync-context";
-import { ago, cn, fmtNum } from "@/lib/utils";
+import { ago, agoShort, fmtNum } from "@/lib/utils";
 
 const Mode = z.enum(["cruft", "unlisted", "rediscover"]);
 type Mode = z.infer<typeof Mode>;
@@ -52,7 +53,11 @@ function buildQueue(d: Derived, mode: Mode): string[] {
   if (mode === "unlisted")
     return open
       .filter((s) => s.listIds.length === 0 && !s.reviewedAt)
-      .sort((a, b) => (b.suggestion?.listId ? b.suggestion.listConfidence : -1) - (a.suggestion?.listId ? a.suggestion.listConfidence : -1) || b.starredAt.localeCompare(a.starredAt))
+      .sort(
+        (a, b) =>
+          (b.suggestion?.listId ? b.suggestion.listConfidence : -1) - (a.suggestion?.listId ? a.suggestion.listConfidence : -1) ||
+          b.starredAt.localeCompare(a.starredAt),
+      )
       .map((s) => s.id);
   return open
     .filter((s) => s.rediscover > 0)
@@ -99,8 +104,10 @@ function Triage() {
     if (data && queue && i < queue.ids.length && !data.byId.get(queue.ids[i]!) && !unstar.isPending) setI((n) => n + 1);
   }, [data, queue, i, unstar.isPending]);
 
-  const suggested = current?.suggestion?.listId && !current.listIds.includes(current.suggestion.listId) ? data?.listsById.get(current.suggestion.listId) : undefined;
+  const suggested =
+    current?.suggestion?.listId && !current.listIds.includes(current.suggestion.listId) ? data?.listsById.get(current.suggestion.listId) : undefined;
 
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const next = useCallback((k: keyof Tally) => {
     setTally((t) => ({ ...t, [k]: t[k] + 1 }));
     setI((n) => n + 1);
@@ -110,6 +117,8 @@ function Triage() {
     (a: "keep" | "unstar" | "skip" | "snooze" | "accept" | "back") => {
       if (a === "back") return setI((n) => Math.max(0, n - 1));
       if (!current) return;
+      if (a === "keep" || a === "unstar" || (a === "accept" && suggested))
+        setOutcome({ star: current, kind: a === "unstar" ? "unstar" : "keep", at: performance.now() });
       if (a === "keep") {
         review.mutate({ repoIds: [current.id], action: "keep" });
         next("kept");
@@ -154,10 +163,15 @@ function Triage() {
 
   const total = queue?.ids.length ?? 0;
   const done = Math.min(i, total);
+  const openRepo = useOpenRepo();
+  const upNext = (queue?.ids.slice(i + 1) ?? [])
+    .map((id) => data?.byId.get(id))
+    .filter((x): x is EStar => !!x)
+    .slice(0, 4);
 
   return (
     <>
-      <PageHeader title="Triage" sub={MODES[mode].hint}>
+      <PageHeader title="Triage" sub={<span className="hidden sm:inline">{MODES[mode].hint}</span>}>
         <Tabs value={mode} onValueChange={(m) => void navigate({ search: { mode: m as Mode } })}>
           <TabsList>
             {(Object.keys(MODES) as Mode[]).map((m) => {
@@ -173,81 +187,86 @@ function Triage() {
       </PageHeader>
 
       {isLoading || !queue ? (
-        <Skeleton className="mx-auto h-[28rem] max-w-2xl" />
+        <Skeleton className="h-112" />
       ) : (
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="font-mono">
-              {done} / {total}
-            </span>
-            <Progress value={total ? (done / total) * 100 : 100} className="flex-1" />
-            <span className="font-mono text-neon-lime">{tally.kept} kept</span>
-            <span className="font-mono text-neon-cyan">{tally.listed} listed</span>
-            <span className="font-mono text-neon-red">{tally.unstarred} gone</span>
-          </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
+          <div className="min-w-0">
+            <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+              <span className="text-foreground">
+                {done} of {total}
+              </span>
+              <Progress value={total ? (done / total) * 100 : 100} className="flex-1" />
+              <span>
+                {tally.kept} kept · {tally.listed} listed · {tally.unstarred} unstarred
+              </span>
+            </div>
 
-          {mode === "unlisted" && <ClefNudge />}
+            {current && (
+              <div className="mb-3 overflow-hidden rounded-lg border bg-card lg:hidden">
+                <StarField stars={data!.stars} highlightId={current.id} onOpen={openRepo} height={112} compact outcome={outcome} />
+              </div>
+            )}
+            {mode === "unlisted" && <ClefNudge />}
 
-          {current ? (
-            <SwipeCard key={current.id} onSwipe={(dir) => act(dir === "right" ? "keep" : "unstar")}>
-              <TriageCard s={current} derived={data!} />
-            </SwipeCard>
-          ) : (
-            <Done tally={tally} mode={mode} onRestart={() => setQueue(null)} />
-          )}
+            {current ? (
+              <SwipeCard key={current.id} onSwipe={(dir) => act(dir === "right" ? "keep" : "unstar")}>
+                <TriageCard s={current} derived={data!} />
+              </SwipeCard>
+            ) : (
+              <Done tally={tally} mode={mode} onRestart={() => setQueue(null)} />
+            )}
 
-          {current && (
-            <>
-              <div className="sticky bottom-[5.25rem] z-20 -mx-2 mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-background/80 p-2 backdrop-blur-xl sm:grid-cols-4 md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
-                <Button variant="destructive" size="lg" onClick={() => act("unstar")}>
-                  <StarOffIcon /> Unstar <Kbd>←</Kbd>
-                </Button>
-                {suggested ? (
-                  <Button size="lg" onClick={() => act("accept")} className="min-w-0 sm:col-span-2">
-                    <BrainCircuitIcon /> <span className="truncate">{suggested.name}</span> <Kbd dark>A</Kbd>
+            {current && (
+              <>
+                <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 -mx-2 mt-4 grid grid-cols-3 gap-2 rounded-lg bg-background/95 p-2 backdrop-blur-sm sm:grid-cols-4 md:static md:mx-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+                  <Button variant="destructive" size="lg" onClick={() => act("unstar")}>
+                    <StarOffIcon /> Unstar <Kbd>←</Kbd>
                   </Button>
-                ) : (
-                  <ListPicker repoIds={[current.id]} align="center" onDone={() => next("listed")}>
-                    <Button size="lg" variant="outline" className="sm:col-span-2">
-                      <ListPlusIcon /> List…
+                  {suggested ? (
+                    <Button size="lg" onClick={() => act("accept")} className="min-w-0 sm:col-span-2">
+                      <BrainCircuitIcon /> <span className="truncate">Add to {suggested.name}</span> <Kbd>A</Kbd>
                     </Button>
-                  </ListPicker>
-                )}
-                <Button size="lg" variant="outline" className="border-neon-lime/40 text-neon-lime hover:border-neon-lime hover:text-neon-lime" onClick={() => act("keep")}>
-                  <CheckIcon /> Keep <Kbd>→</Kbd>
-                </Button>
-              </div>
-              <div className="mt-2 flex flex-wrap justify-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => act("back")} disabled={i === 0}>
-                  <UndoIcon /> Back
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => act("skip")}>
-                  <SkipForwardIcon /> Skip <Kbd>J</Kbd>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => act("snooze")}>
-                  <ClockIcon /> Snooze 90 days <Kbd>S</Kbd>
-                </Button>
-                {suggested && (
-                  <ListPicker repoIds={[current.id]} align="center" onDone={() => next("listed")}>
-                    <Button variant="ghost" size="sm">
-                      <ListPlusIcon /> Other list…
-                    </Button>
-                  </ListPicker>
-                )}
-              </div>
-              <p className="mt-3 hidden text-center text-xs text-muted-foreground md:block">Swipe or use the arrow keys. Unstars can be undone from the toast or Settings.</p>
-            </>
-          )}
+                  ) : (
+                    <ListPicker repoIds={[current.id]} align="center" onDone={() => next("listed")}>
+                      <Button size="lg" variant="outline" className="sm:col-span-2">
+                        <ListPlusIcon /> List…
+                      </Button>
+                    </ListPicker>
+                  )}
+                  <Button size="lg" variant={suggested ? "outline" : "default"} onClick={() => act("keep")}>
+                    <CheckIcon /> Keep <Kbd>→</Kbd>
+                  </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap justify-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => act("back")} disabled={i === 0}>
+                    <UndoIcon /> Back
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => act("skip")}>
+                    <SkipForwardIcon /> Skip <Kbd>J</Kbd>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => act("snooze")}>
+                    <ClockIcon /> Snooze 90 days <Kbd>S</Kbd>
+                  </Button>
+                  {suggested && (
+                    <ListPicker repoIds={[current.id]} align="center" onDone={() => next("listed")}>
+                      <Button variant="ghost" size="sm">
+                        <ListPlusIcon /> Other list…
+                      </Button>
+                    </ListPicker>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <Sidebar current={current} upNext={upNext} derived={data!} onOpen={openRepo} outcome={outcome} />
         </div>
       )}
     </>
   );
 }
 
-function Kbd({ children, dark }: { children: React.ReactNode; dark?: boolean }) {
-  return (
-    <kbd className={cn("ml-1 hidden rounded border px-1.5 font-mono text-[10px] sm:inline", dark ? "border-black/20 bg-black/10" : "border-white/15 bg-white/5")}>{children}</kbd>
-  );
+function Kbd({ children }: { children: React.ReactNode }) {
+  return <kbd className="ml-1 hidden rounded-sm border border-current/25 px-1.5 font-mono text-[11px] leading-4 opacity-70 sm:inline">{children}</kbd>;
 }
 
 function ClefNudge() {
@@ -257,11 +276,11 @@ function ClefNudge() {
   const pending = data.stars.filter((s) => s.listIds.length === 0 && !s.suggestion).length;
   if (!pending && !classify.progress.running) return null;
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-neon-violet/30 bg-neon-violet/10 px-4 py-2.5 text-sm">
-      <BrainCircuitIcon className="size-4 text-neon-violet" />
+    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-2.5 text-sm">
+      <BrainCircuitIcon className="size-4 text-muted-foreground" />
       {classify.progress.running ? (
         <>
-          <span className="text-neon-violet">{classify.progress.label}</span>
+          <span className="tabular-nums">{classify.progress.label}</span>
           <Progress value={classify.progress.pct} className="w-32" />
         </>
       ) : (
@@ -278,74 +297,222 @@ function ClefNudge() {
 
 function TriageCard({ s, derived }: { s: EStar; derived: Derived }) {
   const years = (Date.now() - new Date(s.starredAt).getTime()) / (365 * 86_400_000);
+  const reasons = [...s.rules.reasons, ...(s.suggestion ? [`Clef puts it at ${Math.round(s.suggestion.cruft * 100)}%`] : [])];
+  const suggested = s.suggestion?.listId && !s.listIds.includes(s.suggestion.listId) ? derived.listsById.get(s.suggestion.listId) : undefined;
   return (
-    <div className="glass relative overflow-hidden rounded-3xl p-5 md:p-8">
-      <div
-        className="pointer-events-none absolute -top-24 -right-24 size-72 rounded-full opacity-40 blur-3xl"
-        style={{ background: `radial-gradient(circle, ${s.languageColor ?? "var(--neon-violet)"}, transparent 70%)` }}
-      />
-      <div className="relative">
-        <div className="mb-1 text-xs tracking-[0.2em] text-neon-violet uppercase">
-          Starred {years >= 1 ? `${years.toFixed(1)} years ago` : ago(s.starredAt)}
-        </div>
-        <div className="flex items-start gap-4">
-          <RepoAvatar owner={s.owner} src={s.ownerAvatar} className="size-11 rounded-2xl md:size-14" />
-          <div className="min-w-0">
-            <div className="truncate text-sm text-muted-foreground">{s.owner}</div>
-            <h2 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{s.name}</h2>
+    <article className="overflow-hidden rounded-lg border bg-card" aria-label={`${s.fullName}, triage card`}>
+      <div className="px-5 pt-5 md:px-7 md:pt-6">
+        <div className="flex items-start gap-3">
+          <RepoAvatar owner={s.owner} src={s.ownerAvatar} className="mt-1 size-10 md:size-11" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm text-muted-foreground">
+              {s.owner}
+              <span className="sm:hidden">
+                {" · "}
+                <span
+                  className="mr-1 inline-block size-2 rounded-full align-middle"
+                  style={
+                    s.health === "archived"
+                      ? { boxShadow: `inset 0 0 0 1.5px ${HEALTH_CHART[s.health]}` }
+                      : { background: HEALTH_CHART[s.health], opacity: s.health === "dormant" ? DORMANT_ALPHA : 1 }
+                  }
+                />
+                <span className="text-foreground">
+                  Class <span className="font-mono">{HEALTH_CLASS[s.health]}</span>
+                </span>
+                {` · starred ${agoShort(s.starredAt)}`}
+              </span>
+            </div>
+            <h2 className="truncate text-3xl font-semibold tracking-tight">{s.name}</h2>
+          </div>
+          <div className="hidden shrink-0 sm:block">
+            <ClassMark s={s} years={years} align="right" />
           </div>
         </div>
-        <p className="mt-4 text-base text-foreground/85">{s.description ?? <span className="text-muted-foreground">No description</span>}</p>
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          <HealthBadge health={s.health} />
+        <p className="mt-4 max-w-[65ch] text-base leading-relaxed text-foreground/90">
+          {s.description ?? <span className="text-muted-foreground">No description</span>}
+        </p>
+        <div className="mt-4 flex gap-1.5 overflow-hidden max-sm:flex-nowrap sm:flex-wrap">
           <GrowthBadge d={s.g.d7} estimated={s.g.estimated} />
           {s.isFork && <Badge variant="outline">Fork</Badge>}
           {s.topics.slice(0, 6).map((t) => (
-            <Badge key={t} variant="violet">
+            <Badge key={t} variant="outline">
               {t}
             </Badge>
           ))}
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric icon={StarIcon} label="Stars" value={fmtNum(s.stars)} />
-          <Metric icon={GitForkIcon} label="Forks" value={fmtNum(s.forks)} />
-          <Metric icon={ClockIcon} label="Last push" value={ago(s.pushedAt)} />
-          <Metric icon={RocketIcon} label="Release" value={s.latestReleaseTag ? ago(s.latestReleaseAt) : "none"} />
-        </div>
-        {(s.isCruft || s.rules.reasons.length > 0) && (
-          <div className="mt-4 rounded-xl border border-neon-amber/25 bg-neon-amber/5 p-3 text-sm">
-            <div className="flex items-center gap-2 font-medium text-neon-amber">
-              <TriangleAlertIcon className="size-4" /> {Math.round(s.cruft * 100)}% likely cruft
-            </div>
-            <div className="mt-1 text-muted-foreground">
-              {[...s.rules.reasons, ...(s.suggestion ? [`Clef: ${Math.round(s.suggestion.cruft * 100)}%`] : [])].join(" · ")}
-            </div>
+      </div>
+      {(s.isCruft || s.rules.reasons.length > 0) && (
+        <div className="mt-5 flex flex-col gap-3 border-y px-5 py-4 sm:flex-row sm:gap-8 md:px-7">
+          <div className="shrink-0">
+            <div className="text-3xl font-semibold tracking-tight text-warning tabular-nums">{Math.round(s.cruft * 100)}%</div>
+            <div className="text-xs text-muted-foreground">likely cruft</div>
           </div>
-        )}
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <LangDot color={s.languageColor} name={s.language} />
-          {s.listIds.map((l) => (
-            <Badge key={l}>{derived.listsById.get(l)?.name}</Badge>
-          ))}
-          <a href={s.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 text-primary hover:underline" onPointerDown={(e) => e.stopPropagation()}>
-            GitHub <ExternalLinkIcon className="size-3" />
-          </a>
+          <ol className="space-y-1 text-sm">
+            {reasons.map((r, n) => (
+              <li key={r} className="flex gap-3">
+                <span className="w-4 shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground">{n + 1}</span>
+                {r}
+              </li>
+            ))}
+          </ol>
         </div>
+      )}
+      <dl className={`grid grid-cols-4 border-b [&>div+div]:border-l ${s.isCruft || s.rules.reasons.length > 0 ? "" : "mt-5 border-t"}`}>
+        <Metric label="Stars" value={fmtNum(s.stars)} />
+        <Metric label="Forks" value={fmtNum(s.forks)} />
+        <Metric label="Last push" value={ago(s.pushedAt)} short={agoShort(s.pushedAt)} />
+        <Metric
+          label="Release"
+          value={s.latestReleaseTag ? `${s.latestReleaseTag}` : "none"}
+          detail={s.latestReleaseTag ? ago(s.latestReleaseAt) : undefined}
+        />
+      </dl>
+      {suggested && (
+        <div className="flex items-center gap-2 border-b px-5 py-3 text-sm md:px-7">
+          <BrainCircuitIcon className="size-4 text-muted-foreground" />
+          Clef suggests <span className="font-medium">{suggested.name}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{Math.round(s.suggestion!.listConfidence * 100)}% confident</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 px-5 py-3 text-xs text-muted-foreground md:px-7">
+        <LangDot color={s.languageColor} name={s.language} />
+        {s.listIds.map((l) => (
+          <Badge key={l}>{derived.listsById.get(l)?.name}</Badge>
+        ))}
+        <a
+          href={s.url}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          Open on GitHub <ExternalLinkIcon className="size-3" />
+        </a>
+      </div>
+    </article>
+  );
+}
+
+/** Class swatch, letter and name at readout scale: the stage's spectral reading. */
+function ClassMark({ s, years, align }: { s: EStar; years: number; align: "left" | "right" }) {
+  const c = HEALTH_CHART[s.health];
+  return (
+    <div className={align === "right" ? "text-right" : "flex flex-wrap items-baseline gap-x-3"}>
+      <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : ""}`}>
+        <span
+          className="size-3 rounded-full"
+          style={s.health === "archived" ? { boxShadow: `inset 0 0 0 2px ${c}` } : { background: c, opacity: s.health === "dormant" ? DORMANT_ALPHA : 1 }}
+        />
+        <span className="text-lg font-semibold tracking-tight">
+          Class <span className="font-mono">{HEALTH_CLASS[s.health]}</span>
+        </span>
+        <span className="text-sm text-muted-foreground">{HEALTH_LABEL[s.health]}</span>
+      </div>
+      <div className={`text-xs text-muted-foreground ${align === "right" ? "mt-1" : ""}`}>
+        starred <span className="text-foreground tabular-nums">{years >= 1 ? `${years.toFixed(1)} years ago` : ago(s.starredAt)}</span>
       </div>
     </div>
   );
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof StarIcon; label: string; value: string }) {
+function Metric({ label, value, detail, short }: { label: string; value: string; detail?: string; short?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-white/[0.02] px-3 py-2">
-      <div className="flex items-center gap-1 text-[10px] tracking-wider text-muted-foreground uppercase">
-        <Icon className="size-3" /> {label}
-      </div>
-      <div className="mt-0.5 truncate font-mono text-sm">{value}</div>
+    <div className="min-w-0 px-3 py-2.5 sm:px-5 sm:py-3 md:px-7">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-semibold tracking-tight tabular-nums sm:text-lg">
+        {short ? (
+          <>
+            <span className="sm:hidden">{short}</span>
+            <span className="hidden sm:inline">{value}</span>
+          </>
+        ) : (
+          value
+        )}
+      </dd>
+      {detail && <dd className="hidden truncate text-xs text-muted-foreground sm:block">{detail}</dd>}
     </div>
   );
 }
+
+function Sidebar({
+  current,
+  upNext,
+  derived,
+  onOpen,
+  outcome,
+}: {
+  current: EStar | undefined;
+  upNext: EStar[];
+  derived: Derived;
+  onOpen: (id: string) => void;
+  outcome: Outcome | null;
+}) {
+  return (
+    <aside className="flex flex-col gap-4">
+      <section className="hidden overflow-hidden rounded-lg border bg-card lg:block" aria-labelledby="sits-title">
+        <div className="border-b px-4 py-3">
+          <h2 id="sits-title" className="panel-title">
+            Where it sits
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">This repo among all {derived.stars.length.toLocaleString()} stars</p>
+        </div>
+        <StarField stars={derived.stars} highlightId={current?.id ?? null} onOpen={onOpen} height={280} compact outcome={outcome} />
+      </section>
+      {upNext.length > 0 && (
+        <section className="rounded-lg border bg-card" aria-labelledby="next-title">
+          <h2 id="next-title" className="panel-title border-b px-4 py-3">
+            Up next
+          </h2>
+          <ol className="divide-y">
+            {upNext.map((s) => (
+              <li key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={
+                    s.health === "archived"
+                      ? { boxShadow: `inset 0 0 0 1.5px ${HEALTH_CHART[s.health]}` }
+                      : { background: HEALTH_CHART[s.health], opacity: s.health === "dormant" ? DORMANT_ALPHA : 1 }
+                  }
+                />
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="text-muted-foreground">{s.owner}/</span>
+                  {s.name}
+                </span>
+                {s.isCruft && <span className="text-xs text-warning tabular-nums">{Math.round(s.cruft * 100)}%</span>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      <section className="hidden rounded-lg border bg-card p-4 md:block" aria-labelledby="keys-title">
+        <h2 id="keys-title" className="panel-title">
+          Keys
+        </h2>
+        <dl className="mt-3 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-sm">
+          {KEYS.map(([k, label]) => (
+            <div key={k} className="contents">
+              <dt>
+                <kbd className="inline-grid h-5 min-w-5 place-items-center rounded-sm border px-1 font-mono text-[11px] text-muted-foreground">{k}</kbd>
+              </dt>
+              <dd className="text-muted-foreground">{label}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-3 text-xs text-muted-foreground">Swipe works too. Unstars can be undone from the toast or Settings.</p>
+      </section>
+    </aside>
+  );
+}
+
+const KEYS: Array<[string, string]> = [
+  ["←", "Unstar"],
+  ["→", "Keep"],
+  ["A", "Accept Clef's List"],
+  ["S", "Snooze 90 days"],
+  ["J", "Skip"],
+  ["⌫", "Back"],
+];
 
 function SwipeCard({ children, onSwipe }: { children: React.ReactNode; onSwipe: (dir: "left" | "right") => void }) {
   const [dx, setDx] = useState(0);
@@ -375,23 +542,25 @@ function SwipeCard({ children, onSwipe }: { children: React.ReactNode; onSwipe: 
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 z-10 rounded-3xl transition-opacity"
+        className="pointer-events-none absolute inset-0 z-10 rounded-lg transition-opacity"
         style={{
           opacity: Math.min(1, Math.abs(dx) / threshold),
-          boxShadow: dx > 0 ? "0 0 0 2px var(--neon-lime), 0 0 60px -10px var(--neon-lime)" : "0 0 0 2px var(--neon-red), 0 0 60px -10px var(--neon-red)",
+          boxShadow: dx > 0 ? "inset 0 0 0 2px var(--success)" : "inset 0 0 0 2px var(--destructive)",
         }}
       />
-      <div className="animate-in fade-in-0 zoom-in-95 duration-300">{children}</div>
+      <div className="animate-in fade-in-0 zoom-in-[0.98] duration-200">{children}</div>
     </div>
   );
 }
 
 function Done({ tally, mode, onRestart }: { tally: Tally; mode: Mode; onRestart: () => void }) {
   return (
-    <div className="glass rounded-3xl p-10 text-center">
-      <PartyPopperIcon className="mx-auto size-10 text-neon-magenta drop-shadow-[0_0_12px_var(--neon-magenta)]" />
-      <h2 className="neon-text mt-4 text-2xl font-bold">Queue clear</h2>
-      <p className="mt-2 text-muted-foreground">
+    <div className="rounded-lg border bg-card p-10 text-center">
+      <div className="mx-auto grid size-10 place-items-center rounded-full border border-success/30 bg-success/10">
+        <CheckIcon className="size-5 text-success" />
+      </div>
+      <h2 className="mt-4 text-xl font-semibold">Queue clear</h2>
+      <p className="mt-2 text-sm text-muted-foreground tabular-nums">
         {tally.kept} kept · {tally.listed} listed · {tally.unstarred} unstarred · {tally.skipped} skipped
       </p>
       <div className="mt-6 flex justify-center gap-2">

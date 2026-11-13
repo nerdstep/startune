@@ -12,7 +12,7 @@ function Tooltip({ children, content, side = "top" }: { children: React.ReactEle
       <TooltipPrimitive.Trigger render={children} />
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Positioner side={side} sideOffset={6} className="z-50">
-          <TooltipPrimitive.Popup className="max-w-xs origin-[var(--transform-origin)] rounded-lg border border-primary/30 bg-popover px-2.5 py-1.5 text-xs text-foreground shadow-[0_0_24px_-8px_var(--neon-cyan)] backdrop-blur-xl transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0">
+          <TooltipPrimitive.Popup className="max-w-xs origin-[var(--transform-origin)] rounded-md border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg shadow-black/30 transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0">
             {content}
           </TooltipPrimitive.Popup>
         </TooltipPrimitive.Positioner>

@@ -1,25 +1,23 @@
-import {
-  BrainCircuitIcon,
-  CalendarIcon,
-  ExternalLinkIcon,
-  GitForkIcon,
-  ListPlusIcon,
-  MoreHorizontalIcon,
-  StarIcon,
-  StarOffIcon,
-  TagIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+import { BrainCircuitIcon, ExternalLinkIcon, ListPlusIcon, MoreHorizontalIcon, StarIcon, StarOffIcon, TriangleAlertIcon } from "lucide-react";
 import { createContext, useContext, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLinkItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useSpotlight } from "@/lib/use-spotlight";
 import { useDerived, useReview, useUnstar, useUpdateLists, type EStar } from "@/lib/queries";
-import { ago, cn, fmtDate, fmtNum } from "@/lib/utils";
+import { HEALTH_LABEL } from "@shared/scoring";
+import { HEALTH_CHART, HEALTH_CLASS } from "@/lib/palette";
+import { DORMANT_ALPHA } from "./star-field";
+import { ago, agoShort, cn, fmtDate, fmtNum } from "@/lib/utils";
 import { GrowthBadge, HealthBadge, LangDot, RepoAvatar } from "./bits";
 import { ListPicker } from "./list-picker";
 
@@ -59,7 +57,7 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <RepoAvatar owner={s.owner} src={s.ownerAvatar} className="size-11" />
         <div className="min-w-0">
           <DialogTitle className="truncate">
-            <span className="text-muted-foreground">{s.owner}/</span>
+            <span className="font-normal text-muted-foreground">{s.owner}/</span>
             {s.name}
           </DialogTitle>
           <DialogDescription className="mt-1">{s.description ?? "No description"}</DialogDescription>
@@ -71,12 +69,12 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
         {s.isFork && <Badge variant="outline">Fork</Badge>}
         {s.license && <Badge variant="outline">{s.license}</Badge>}
         {s.topics.map((t) => (
-          <Badge key={t} variant="violet">
+          <Badge key={t} variant="outline">
             {t}
           </Badge>
         ))}
       </div>
-      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
         <Stat label="Stars" value={fmtNum(s.stars)} />
         <Stat label="Forks" value={fmtNum(s.forks)} />
         <Stat label="Last push" value={ago(s.pushedAt)} />
@@ -85,8 +83,8 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <Stat label="Created" value={fmtDate(s.createdAt)} />
       </dl>
       {s.rules.reasons.length > 0 && (
-        <div className="rounded-xl border border-neon-amber/25 bg-neon-amber/5 p-3 text-sm">
-          <div className="mb-1 flex items-center gap-2 font-medium text-neon-amber">
+        <div className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-sm">
+          <div className="mb-1 flex items-center gap-2 font-medium text-warning">
             <TriangleAlertIcon className="size-4" /> Cruft score {Math.round(s.cruft * 100)}%
           </div>
           <ul className="list-inside list-disc text-muted-foreground">
@@ -97,7 +95,9 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
           </ul>
         </div>
       )}
-      {suggested && !s.listIds.includes(suggested.id) && <SuggestionChip repoId={s.id} listId={suggested.id} name={suggested.name} confidence={s.suggestion!.listConfidence} />}
+      {suggested && !s.listIds.includes(suggested.id) && (
+        <SuggestionChip repoId={s.id} listId={suggested.id} name={suggested.name} confidence={s.suggestion!.listConfidence} />
+      )}
       <div>
         <div className="mb-1.5 text-xs font-medium text-muted-foreground">Lists</div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -128,14 +128,27 @@ function RepoDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
 function Stat({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-white/[0.02] px-3 py-2", wide && "col-span-2")}>
-      <dt className="text-[11px] tracking-wider text-muted-foreground uppercase">{label}</dt>
-      <dd className="mt-0.5 truncate font-mono text-sm">{value}</dd>
+    <div className={cn("min-w-0", wide && "col-span-2")}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate tabular-nums">{value}</dd>
     </div>
   );
 }
 
-export function SuggestionChip({ repoId, listId, name, confidence }: { repoId: string; listId: string; name: string; confidence: number }) {
+export function SuggestionChip({
+  repoId,
+  listId,
+  name,
+  confidence,
+  compact,
+}: {
+  repoId: string;
+  listId: string;
+  name: string;
+  confidence: number;
+  /** Single line for table cells: drops "Add to" and truncates the name. */
+  compact?: boolean;
+}) {
   const update = useUpdateLists();
   return (
     <button
@@ -143,42 +156,66 @@ export function SuggestionChip({ repoId, listId, name, confidence }: { repoId: s
         e.stopPropagation();
         update.mutate({ repoIds: [repoId], add: [listId] });
       }}
-      className="group inline-flex items-center gap-2 rounded-full border border-neon-violet/40 bg-neon-violet/10 py-1 pr-3 pl-2 text-xs text-neon-violet transition hover:shadow-[0_0_18px_-4px_var(--neon-violet)]"
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border border-dashed border-input py-px pr-2.5 pl-2 text-xs whitespace-nowrap text-muted-foreground transition-colors duration-100 hover:border-solid hover:bg-accent hover:text-foreground",
+        compact && "max-w-full min-w-0",
+      )}
+      title={`Clef suggests ${name} (${Math.round(confidence * 100)}% confident). Click to add.`}
+      aria-label={`Add to ${name}, Clef's suggestion, ${Math.round(confidence * 100)}% confident`}
     >
-      <BrainCircuitIcon className="size-3.5" />
-      Add to <b className="font-semibold">{name}</b>
-      <span className="font-mono opacity-70">{Math.round(confidence * 100)}%</span>
+      <BrainCircuitIcon className="size-3 shrink-0" />
+      {!compact && "Add to "}
+      <span className={cn("font-medium text-foreground", compact && "min-w-0 truncate")}>{name}</span>
+      <span className="tabular-nums">{Math.round(confidence * 100)}%</span>
     </button>
   );
 }
 
 /* ---------- Row (library) ---------- */
 
+/** Shared column template for the Stars table header and rows (md and up). */
+export const ROW_COLS = "md:grid-cols-[1.25rem_2.75rem_minmax(0,1fr)_4.25rem_4.5rem_4.5rem_minmax(0,8.5rem)]";
+
 export function RepoRow({
   s,
   selected,
   onSelect,
+  onHover,
 }: {
   s: EStar;
   selected: boolean;
   onSelect: (id: string, shift: boolean) => void;
+  onHover?: (id: string | null) => void;
 }) {
   const { data } = useDerived();
   const open = useOpenRepo();
   const unstar = useUnstar();
-  const ref = useSpotlight<HTMLDivElement>();
   const suggested = s.suggestion?.listId && !s.listIds.includes(s.suggestion.listId) ? data?.listsById.get(s.suggestion.listId) : undefined;
+  const lists = s.listIds.map((l) => data?.listsById.get(l)?.name).filter(Boolean) as string[];
+  const dot = (
+    <span
+      aria-hidden
+      className="inline-block size-2 shrink-0 rounded-full"
+      style={
+        s.health === "archived"
+          ? { boxShadow: `inset 0 0 0 1.5px ${HEALTH_CHART[s.health]}` }
+          : { background: HEALTH_CHART[s.health], opacity: s.health === "dormant" ? DORMANT_ALPHA : 1 }
+      }
+    />
+  );
   return (
     <div
-      ref={ref}
       onClick={() => open(s.id)}
+      onMouseEnter={() => onHover?.(s.id)}
+      onMouseLeave={() => onHover?.(null)}
       className={cn(
-        "spotlight group flex cursor-pointer items-start gap-3 rounded-xl border border-transparent px-3 py-3 transition-colors hover:border-border hover:bg-white/[0.025]",
-        selected && "border-primary/40 bg-primary/[0.06] shadow-[inset_0_0_24px_-12px_var(--neon-cyan)]",
+        "group relative grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-2.5 transition-colors duration-100 hover:bg-accent/40",
+        ROW_COLS,
+        selected && "bg-secondary/70 hover:bg-secondary",
       )}
     >
       <div
-        className="pt-2"
+        className="flex"
         onClick={(e) => {
           e.stopPropagation();
           onSelect(s.id, e.shiftKey);
@@ -186,48 +223,68 @@ export function RepoRow({
       >
         <Checkbox checked={selected} aria-label={`Select ${s.fullName}`} />
       </div>
-      <RepoAvatar owner={s.owner} src={s.ownerAvatar} className="mt-0.5" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate font-medium">
-            <span className="text-muted-foreground">{s.owner}/</span>
-            <span className="group-hover:text-primary group-hover:text-glow transition-colors">{s.name}</span>
-          </span>
+      <Tooltip content={`${HEALTH_LABEL[s.health]} · class ${HEALTH_CLASS[s.health]}`}>
+        <span className="hidden items-center gap-2 md:inline-flex">
+          {dot}
+          <span className="font-mono text-[11px] text-muted-foreground">{HEALTH_CLASS[s.health]}</span>
+        </span>
+      </Tooltip>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="md:hidden">{dot}</span>
+          <button
+            className="min-w-0 truncate text-left text-sm font-medium outline-none focus-visible:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              open(s.id);
+            }}
+            onFocus={() => onHover?.(s.id)}
+            onBlur={() => onHover?.(null)}
+          >
+            <span className="font-normal text-muted-foreground">{s.owner}/</span>
+            <span className="underline-offset-2 group-hover:underline">{s.name}</span>
+          </button>
           {s.isCruft && (
             <Tooltip content={s.rules.reasons.join(" · ") || "Clef flagged this as likely cruft"}>
-              <Badge variant="amber">
-                <TriangleAlertIcon /> cruft {Math.round(s.cruft * 100)}%
+              <Badge variant="warning" className="shrink-0">
+                cruft {Math.round(s.cruft * 100)}%
               </Badge>
             </Tooltip>
           )}
-          <GrowthBadge d={s.g.d7} estimated={s.g.estimated} />
         </div>
-        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{s.description ?? "No description"}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-          <LangDot color={s.languageColor} name={s.language} />
-          <span className="inline-flex items-center gap-1 font-mono">
-            <StarIcon className="size-3" />
-            {fmtNum(s.stars)}
-          </span>
-          <span className="hidden items-center gap-1 sm:inline-flex">
-            <GitForkIcon className="size-3" />
-            {fmtNum(s.forks)}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <CalendarIcon className="size-3" />
-            pushed {ago(s.pushedAt)}
-          </span>
-          <span className="hidden md:inline">· starred {ago(s.starredAt)}</span>
-          {s.listIds.map((l) => (
-            <Badge key={l} className="py-0">
-              <TagIcon />
-              {data?.listsById.get(l)?.name}
-            </Badge>
-          ))}
-          {suggested && <SuggestionChip repoId={s.id} listId={suggested.id} name={suggested.name} confidence={s.suggestion!.listConfidence} />}
+        <p className="truncate text-xs text-muted-foreground">
+          {s.language && <span className="hidden text-foreground/70 md:inline">{s.language} · </span>}
+          {s.description ?? "No description"}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground md:hidden">
+          {s.language && <span className="text-foreground/70">{s.language}</span>}
+          <span className="tabular-nums">{fmtNum(s.stars)} stars</span>
+          <span className="tabular-nums">pushed {agoShort(s.pushedAt)}</span>
+          {lists[0] && <Badge>{lists[0]}</Badge>}
         </div>
       </div>
-      <div className="flex items-center gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <span className="hidden text-right tabular-nums md:block">
+        <span className="block text-sm">{fmtNum(s.stars)}</span>
+        {(s.g.d7 ?? 0) > 0 && <span className="block text-[11px] text-muted-foreground">+{fmtNum(s.g.d7!)} 7d</span>}
+      </span>
+      <span className="hidden text-sm text-muted-foreground tabular-nums md:block">{agoShort(s.pushedAt)}</span>
+      <span className="hidden text-sm text-muted-foreground tabular-nums md:block">{agoShort(s.starredAt)}</span>
+      <div className="hidden min-w-0 items-center gap-1 md:flex">
+        {lists.length > 0 ? (
+          <>
+            <Badge className="min-w-0 truncate">{lists[0]}</Badge>
+            {lists.length > 1 && <span className="text-xs text-muted-foreground tabular-nums">+{lists.length - 1}</span>}
+          </>
+        ) : suggested ? (
+          <SuggestionChip repoId={s.id} listId={suggested.id} name={suggested.name} confidence={s.suggestion!.listConfidence} compact />
+        ) : (
+          <span className="text-xs text-muted-foreground">Unlisted</span>
+        )}
+      </div>
+      <div
+        className="flex items-center justify-end gap-0.5 opacity-100 transition md:pointer-events-none md:absolute md:top-1/2 md:right-2 md:-translate-y-1/2 md:rounded-md md:border md:bg-popover md:p-0.5 md:opacity-0 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100 md:group-hover:pointer-events-auto md:group-hover:opacity-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         <ListPicker repoIds={[s.id]}>
           <Button size="icon-sm" variant="ghost" aria-label="Edit lists">
             <ListPlusIcon />
@@ -265,25 +322,27 @@ export function RepoTile({
   onClick?: () => void;
   className?: string;
 }) {
-  const ref = useSpotlight<HTMLDivElement>();
   return (
     <div
-      ref={ref}
       onClick={onClick}
-      className={cn("glass spotlight flex h-full flex-col gap-2 rounded-2xl p-4 transition-transform", onClick && "cursor-pointer hover:-translate-y-0.5", className)}
+      className={cn(
+        "flex h-full flex-col gap-2 rounded-lg border bg-card p-4 transition-colors duration-100",
+        onClick && "cursor-pointer hover:border-input hover:bg-accent/40",
+        className,
+      )}
     >
       <div className="flex items-center gap-2.5">
         <RepoAvatar owner={s.owner} src={s.ownerAvatar} />
         <div className="min-w-0">
           <div className="truncate text-xs text-muted-foreground">{s.owner}</div>
-          <div className="truncate font-semibold">{s.name}</div>
+          <div className="truncate font-medium">{s.name}</div>
         </div>
       </div>
       <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">{s.description ?? "No description"}</p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <LangDot color={s.languageColor} name={s.language} />
-        <span className="inline-flex items-center gap-1 font-mono">
-          <StarIcon className="size-3 text-neon-amber" />
+        <span className="inline-flex items-center gap-1 tabular-nums">
+          <StarIcon className="size-3" />
           {fmtNum(s.stars)}
         </span>
         <span>pushed {ago(s.pushedAt)}</span>

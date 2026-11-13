@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useId } from "react";
 import {
   FlameIcon,
   GaugeIcon,
@@ -40,26 +39,13 @@ const NAV = [
 const MOBILE = ["/", "/stars", "/triage", "/trending", "/lists"];
 
 export function Logo({ className }: { className?: string }) {
-  // Unique gradient id: a hidden copy of the logo would otherwise own "#lg".
-  const gid = useId();
   return (
-    <div className={cn("flex items-center gap-2.5", className)}>
-      <div className="relative grid size-8 place-items-center">
-        <span className="absolute inset-0 rounded-full bg-neon-cyan/30 blur-md" />
-        <svg viewBox="0 0 32 32" className="relative size-8 drop-shadow-[0_0_6px_var(--neon-cyan)]">
-          <defs>
-            <linearGradient id={gid} x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0" stopColor="var(--neon-cyan)" />
-              <stop offset="1" stopColor="var(--neon-magenta)" />
-            </linearGradient>
-          </defs>
-          <path d="M16 3l3.4 8.2 8.6.7-6.6 5.6 2 8.5L16 21.4 8.6 26l2-8.5L4 11.9l8.6-.7z" fill="none" stroke={`url(#${gid})`} strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="M9 16.5c2.3-2 4.6 2 7 0s4.7 2 7 0" fill="none" stroke={`url(#${gid})`} strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-      </div>
-      <span className="text-lg font-bold tracking-tight">
-        Star<span className="neon-text">Tune</span>
-      </span>
+    <div className={cn("flex items-center gap-2", className)}>
+      <svg viewBox="0 0 32 32" aria-hidden className="size-6">
+        <path d="M16 3l3.4 8.2 8.6.7-6.6 5.6 2 8.5L16 21.4 8.6 26l2-8.5L4 11.9l8.6-.7z" fill="var(--primary)" />
+        <path d="M10 16.5c2-1.7 4 1.7 6 0s4 1.7 6 0" fill="none" stroke="var(--background)" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+      <span className="text-[15px] font-semibold tracking-tight">StarTune</span>
     </div>
   );
 }
@@ -67,11 +53,9 @@ export function Logo({ className }: { className?: string }) {
 export function SyncBar({ progress }: { progress: P }) {
   if (!progress.running) return null;
   return (
-    <div className="fixed inset-x-0 top-0 z-50">
+    <div className="fixed inset-x-0 top-0 z-50" role="status">
       <Progress value={progress.pct} thin />
-      <div className="mx-auto mt-2 w-fit rounded-full border border-primary/30 bg-popover px-3 py-1 text-xs text-primary shadow-[0_0_24px_-8px_var(--neon-cyan)] backdrop-blur-xl">
-        {progress.label}
-      </div>
+      <div className="mx-auto mt-2 w-fit rounded-full border bg-popover px-3 py-1 text-xs text-foreground tabular-nums shadow-lg shadow-black/40">{progress.label}</div>
     </div>
   );
 }
@@ -93,13 +77,13 @@ function UserMenu() {
   if (!u) return null;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Account menu">
-        <RepoAvatar owner={u.login} src={u.avatarUrl} className="size-8 rounded-full" />
+      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background" aria-label="Account menu">
+        <RepoAvatar owner={u.login} src={u.avatarUrl} className="size-7 rounded-full" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>
           {u.name ?? u.login}
-          <div className="font-normal">@{u.login}</div>
+          <div className="font-normal text-muted-foreground">@{u.login}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem render={<Link to="/map" />}>
@@ -127,23 +111,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { sync } = useSyncContext();
   const active = (to: string) => (to === "/" ? path === "/" : path.startsWith(to));
+  const item = (on: boolean) =>
+    cn(
+      "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors duration-100",
+      on ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+    );
   return (
-    <div className="min-h-dvh md:pl-60">
+    <div className="min-h-dvh md:pl-56">
       <SyncBar progress={sync.progress} />
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-background/40 p-4 backdrop-blur-xl md:flex">
-        <Logo className="mb-8 px-2 pt-1" />
-        <nav className="flex flex-col gap-1">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r bg-background px-3 pb-3 md:flex">
+        <Logo className="h-14 px-2.5" />
+        <nav className="mt-2 flex flex-col gap-0.5" aria-label="Main">
           {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className={cn(
-                "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-white/[0.04] hover:text-foreground",
-                active(n.to) &&
-                  "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_oklch(0.86_0.15_195/30%),0_0_24px_-10px_var(--neon-cyan)] before:absolute before:top-2 before:bottom-2 before:-left-4 before:w-0.5 before:rounded-full before:bg-primary before:shadow-[0_0_10px_var(--neon-cyan)]",
-              )}
-            >
+            <Link key={n.to} to={n.to} className={item(active(n.to))} aria-current={active(n.to) ? "page" : undefined}>
               <n.icon className="size-4" />
               {n.label}
             </Link>
@@ -151,24 +132,25 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="mt-auto flex flex-col gap-2">
           {backend.demo && (
-            <div className="rounded-xl border border-neon-magenta/30 bg-neon-magenta/10 p-3 text-xs text-neon-magenta">
-              Demo mode — sample data, nothing touches GitHub.
+            <div className="rounded-lg border px-3 py-2.5 text-xs text-muted-foreground">
+              <div className="mb-0.5 flex items-center gap-1.5 font-medium text-foreground">
+                <span className="size-1.5 rounded-full bg-warning" /> Demo mode
+              </div>
+              Sample data. Nothing touches GitHub.
             </div>
           )}
-          <Link
-            to="/settings"
-            className={cn("flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:text-foreground", active("/settings") && "text-primary")}
-          >
+          <Link to="/settings" className={item(active("/settings"))}>
             <SettingsIcon className="size-4" /> Settings
           </Link>
         </div>
       </aside>
 
       {/* Top bar */}
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/50 px-4 backdrop-blur-xl md:px-8">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur-sm md:px-8">
         <Logo className="md:hidden" />
-        <div className="hidden text-xs text-muted-foreground md:block">
-          {backend.demo ? <span className="text-neon-magenta">● Demo data</span> : <span className="text-neon-lime">● Connected to GitHub</span>}
+        <div className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
+          <span className={cn("size-1.5 rounded-full", backend.demo ? "bg-warning" : "bg-primary")} />
+          {backend.demo ? "Demo data" : "Connected to GitHub"}
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden sm:block">
@@ -181,20 +163,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:px-8 md:pb-12">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 pt-8 pb-28 md:px-8 md:pb-16">{children}</main>
 
       {/* Mobile tab bar */}
-      <nav className="fixed inset-x-3 bottom-3 z-30 flex justify-around rounded-2xl border border-border bg-background/70 p-1.5 shadow-[0_10px_40px_-10px_black] backdrop-blur-xl md:hidden">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 flex justify-around border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-sm md:hidden"
+        aria-label="Main"
+      >
         {NAV.filter((n) => MOBILE.includes(n.to)).map((n) => (
           <Link
             key={n.to}
             to={n.to}
-            className={cn(
-              "flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[10px] text-muted-foreground",
-              active(n.to) && "bg-primary/10 text-primary [&_svg]:drop-shadow-[0_0_6px_var(--neon-cyan)]",
-            )}
+            aria-current={active(n.to) ? "page" : undefined}
+            className={cn("flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] text-muted-foreground", active(n.to) && "text-foreground")}
           >
-            <n.icon className="size-5" />
+            <n.icon className="size-5" strokeWidth={active(n.to) ? 2.25 : 1.75} />
             {n.label}
           </Link>
         ))}

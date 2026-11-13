@@ -33,3 +33,13 @@ export function chunk<T>(arr: T[], n: number): T[][] {
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
   return out;
 }
+
+/** Compact relative time for narrow readouts and table cells: 5y ago, 9mo ago, 12d ago, 3h ago. */
+export function agoShort(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "never";
+  const d = (now - new Date(iso).getTime()) / 86_400_000;
+  if (d >= 365) return `${Math.floor(d / 365)}y ago`;
+  if (d >= 30) return `${Math.floor(d / 30)}mo ago`;
+  if (d >= 1) return `${Math.floor(d)}d ago`;
+  return `${Math.max(1, Math.floor(d * 24))}h ago`;
+}

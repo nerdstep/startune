@@ -8,7 +8,7 @@ const DropdownMenu = Menu.Root;
 const DropdownMenuTrigger = Menu.Trigger;
 
 const itemBase =
-  "relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-white/[0.07] data-[disabled]:opacity-50 [&_svg]:size-4";
+  "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none select-none data-[highlighted]:bg-accent data-[disabled]:opacity-50 [&_svg]:size-4";
 
 function DropdownMenuContent({
   className,
@@ -28,7 +28,7 @@ function DropdownMenuContent({
       <Menu.Positioner className="z-50 outline-none" align={align} side={side} sideOffset={sideOffset}>
         <Menu.Popup
           className={cn(
-            "glass max-h-[var(--available-height)] min-w-44 origin-[var(--transform-origin)] overflow-y-auto rounded-xl p-1 !bg-popover text-popover-foreground outline-none",
+            "max-h-[var(--available-height)] min-w-44 origin-[var(--transform-origin)] overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl shadow-black/40 outline-none",
             "transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
             className,
           )}
@@ -46,7 +46,7 @@ function DropdownMenuItem({ className, variant, ...props }: Omit<Menu.Item.Props
       className={cn(
         itemBase,
         "[&_svg]:text-muted-foreground",
-        variant === "destructive" && "text-neon-red data-[highlighted]:bg-destructive/15 [&_svg]:!text-neon-red",
+        variant === "destructive" && "text-destructive data-[highlighted]:bg-destructive/10 [&_svg]:!text-destructive",
         className,
       )}
       {...props}
@@ -64,7 +64,7 @@ function DropdownMenuCheckboxItem({ className, children, ...props }: Omit<Menu.C
     <Menu.CheckboxItem className={cn(itemBase, "pl-8", className)} {...props}>
       <span className="absolute left-2 flex size-4 items-center justify-center">
         <Menu.CheckboxItemIndicator>
-          <CheckIcon className="size-4 text-primary" />
+          <CheckIcon className="size-4" />
         </Menu.CheckboxItemIndicator>
       </span>
       {children}

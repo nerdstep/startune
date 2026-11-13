@@ -154,6 +154,12 @@ const clone = <T,>(v: T): T => structuredClone(v);
 
 const STORE = "startune:demo-state";
 
+/** A fresh generated library for showcase surfaces (sign-in) that run before any backend exists. */
+export function sampleLibrary(): Library {
+  const { stars, lists } = generate();
+  return { stars, lists, recentlyUnstarred: [], lastSyncedAt: new Date().toISOString(), today: new Date().toISOString().slice(0, 10) };
+}
+
 export function createDemoBackend(): Backend {
   const { stars, lists, catOf } = generate();
   let state: Library = { stars, lists, recentlyUnstarred: [], lastSyncedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), today: new Date().toISOString().slice(0, 10) };

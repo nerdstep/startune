@@ -5,33 +5,40 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Star field. A black instrument: panels are drawn by 1px hairlines, not fills.
+ * One luminous accent (acid lime) for selection, focus and the primary action,
+ * only ever as a line or a small mark. Health speaks stellar classes (palette.ts).
+ */
 :root {
-  --radius: 0.85rem;
-  --background: oklch(0.13 0.025 275);
-  --foreground: oklch(0.96 0.01 260);
-  --card: oklch(0.18 0.03 275 / 55%);
+  --radius: 0.375rem;
+  --background: #050607;
+  --foreground: #e8eae6;
+  --card: #08090b;
   --card-foreground: var(--foreground);
-  --popover: oklch(0.17 0.03 275 / 92%);
+  --popover: #0e1013;
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.86 0.15 195); /* neon cyan */
-  --primary-foreground: oklch(0.16 0.04 250);
-  --secondary: oklch(0.26 0.04 275 / 70%);
+  --primary: #c8ff3a;
+  --primary-foreground: #050607;
+  --secondary: #16181b;
   --secondary-foreground: var(--foreground);
-  --muted: oklch(0.24 0.03 275 / 60%);
-  --muted-foreground: oklch(0.72 0.03 265);
-  --accent: oklch(0.3 0.06 290 / 60%);
+  --muted: #101215;
+  --muted-foreground: #8d938f;
+  --accent: #14161a;
   --accent-foreground: var(--foreground);
-  --destructive: oklch(0.68 0.22 15);
-  --border: oklch(0.9 0.05 260 / 10%);
-  --input: oklch(0.9 0.05 260 / 14%);
-  --ring: oklch(0.86 0.15 195 / 60%);
+  --border: #23262a;
+  --input: #30343a;
+  --ring: #c8ff3a;
 
-  --neon-cyan: oklch(0.86 0.15 195);
-  --neon-magenta: oklch(0.72 0.26 330);
-  --neon-violet: oklch(0.68 0.2 290);
-  --neon-lime: oklch(0.88 0.2 135);
-  --neon-amber: oklch(0.85 0.16 75);
-  --neon-red: oklch(0.7 0.22 18);
+  --success: #c8ff3a;
+  --warning: #ff9b42;
+  --destructive: #ff5b4d;
+
+  /* Hairline grid ink for plots */
+  --grid: #1c1f23;
+  --grid-strong: #2c3036;
+  /* Leaders from a mark to its resting label */
+  --dim-leader: #5a6068;
 }
 
 @theme inline {
@@ -55,185 +62,68 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-neon-cyan: var(--neon-cyan);
-  --color-neon-magenta: var(--neon-magenta);
-  --color-neon-violet: var(--neon-violet);
-  --color-neon-lime: var(--neon-lime);
-  --color-neon-amber: var(--neon-amber);
-  --color-neon-red: var(--neon-red);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-grid: var(--grid);
+  --color-grid-strong: var(--grid-strong);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/60;
   }
   html {
     color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01", "cv11", "tnum";
     min-height: 100dvh;
+    caret-color: var(--primary);
   }
   ::selection {
-    background: oklch(0.72 0.26 330 / 35%);
+    background: color-mix(in oklab, var(--primary) 28%, transparent);
+    color: var(--foreground);
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  /* Tailwind v4 dropped the pointer on buttons; restore it for everything clickable (shadcn's recommended fix). */
+  button:not(:disabled):not([data-disabled]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitem"]:not([data-disabled]),
+  [role="menuitemcheckbox"]:not([data-disabled]),
+  [role="menuitemradio"]:not([data-disabled]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([data-disabled]),
+  [role="switch"]:not([data-disabled]),
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
   }
 }
 
-/* ---------- Ambient scene ---------- */
-
-.nebula {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  background:
-    radial-gradient(60rem 40rem at 10% -10%, oklch(0.45 0.2 290 / 35%), transparent 60%),
-    radial-gradient(50rem 35rem at 100% 0%, oklch(0.55 0.2 200 / 22%), transparent 60%),
-    radial-gradient(45rem 40rem at 70% 110%, oklch(0.5 0.24 330 / 22%), transparent 60%),
-    linear-gradient(180deg, oklch(0.12 0.03 275), oklch(0.1 0.02 270));
+/* Panel heading: a quiet instrument label, sentence case, not a kicker. */
+@utility panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
 }
 
-.grid-floor {
-  position: fixed;
-  inset: auto 0 0 0;
-  height: 45vh;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(oklch(0.86 0.15 195 / 9%) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.86 0.15 195 / 9%) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(to top, black, transparent);
-  transform: perspective(600px) rotateX(55deg);
-  transform-origin: bottom;
-}
-
-/* ---------- Surfaces & light ---------- */
-
-@utility glass {
-  background: linear-gradient(180deg, oklch(0.22 0.035 275 / 62%), oklch(0.16 0.03 275 / 55%));
-  backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid oklch(0.9 0.05 260 / 9%);
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 6%),
-    0 10px 40px -12px oklch(0 0 0 / 60%);
-}
-
-/* Cursor-following light; set --mx / --my from JS (see useSpotlight). */
-@utility spotlight {
-  position: relative;
-  isolation: isolate;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    z-index: -1;
-    opacity: var(--spot, 0);
-    transition: opacity 250ms;
-    background: radial-gradient(
-      22rem circle at var(--mx, 50%) var(--my, 50%),
-      oklch(0.86 0.15 195 / 13%),
-      transparent 45%
-    );
-  }
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    pointer-events: none;
-    opacity: var(--spot, 0);
-    transition: opacity 250ms;
-    background: radial-gradient(
-      14rem circle at var(--mx, 50%) var(--my, 50%),
-      oklch(0.86 0.15 195 / 70%),
-      oklch(0.72 0.26 330 / 35%) 40%,
-      transparent 70%
-    );
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
-  }
-}
-
-@utility neon-text {
-  background: linear-gradient(92deg, var(--neon-cyan), var(--neon-violet) 50%, var(--neon-magenta));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 18px oklch(0.72 0.26 330 / 35%));
-}
-
-@utility glow-cyan {
-  box-shadow:
-    0 0 0 1px oklch(0.86 0.15 195 / 45%),
-    0 0 18px oklch(0.86 0.15 195 / 35%),
-    0 0 48px -8px oklch(0.86 0.15 195 / 40%);
-}
-@utility glow-magenta {
-  box-shadow:
-    0 0 0 1px oklch(0.72 0.26 330 / 50%),
-    0 0 18px oklch(0.72 0.26 330 / 35%),
-    0 0 48px -8px oklch(0.72 0.26 330 / 45%);
-}
-@utility text-glow {
-  text-shadow: 0 0 12px currentColor;
-}
-
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-@keyframes drift {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-2000px);
-  }
-}
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-}
-@keyframes scan {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
-.scanline {
-  position: relative;
-  overflow: hidden;
-}
-.scanline::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, oklch(0.86 0.15 195 / 35%), transparent);
-  animation: scan 1.4s linear infinite;
+/* Measurement type: axes, coordinates, counts in tables. */
+@utility measure {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -245,8 +135,7 @@
   }
 }
 
-/* Thin, themed scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: oklch(0.9 0.05 260 / 18%) transparent;
+  scrollbar-color: #2c3036 transparent;
 }

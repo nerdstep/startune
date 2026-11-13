@@ -25,7 +25,7 @@ function PopoverContent({
       <PopoverPrimitive.Positioner className="z-50" align={align} side={side} sideOffset={sideOffset}>
         <PopoverPrimitive.Popup
           className={cn(
-            "glass w-72 origin-[var(--transform-origin)] rounded-xl p-3 !bg-popover text-popover-foreground outline-none",
+            "w-72 origin-[var(--transform-origin)] rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl shadow-black/40 outline-none",
             "transition-[opacity,transform] duration-150 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
             className,
           )}

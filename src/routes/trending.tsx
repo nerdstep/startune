@@ -1,16 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FlameIcon, PackageIcon, RefreshCwIcon, StarIcon, TelescopeIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 import { GrowthBadge, PageHeader } from "@/components/bits";
+import { MomentumPlot } from "@/components/momentum-plot";
 import { RepoTile, useOpenRepo } from "@/components/repo";
+import { DORMANT_ALPHA } from "@/components/star-field";
+import { HEALTH_CHART, HEALTH_CLASS } from "@/lib/palette";
+import { HEALTH_LABEL, HEALTH_ORDER } from "@shared/scoring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDerived, useDiscover, useStar, type EStar } from "@/lib/queries";
-import { ago, cn, fmtNum, fmtPct } from "@/lib/utils";
+import { ago, fmtNum, fmtPct } from "@/lib/utils";
 
 const Tab = z.enum(["rising", "releases", "discover"]);
 type Tab = z.infer<typeof Tab>;
@@ -57,6 +62,8 @@ function Rising() {
   const open = useOpenRepo();
   const [window, setWindow] = useState<"d7" | "d30">("d7");
   const [relative, setRelative] = useState(false);
+  const [rowHover, setRowHover] = useState<string | null>(null);
+  const delta = useCallback((s: EStar) => s.g[window] ?? 0, [window]);
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -74,67 +81,162 @@ function Rising() {
       .sort((a, b) => b.v - a.v)
       .slice(0, 40);
   }, [data, window, relative]);
+  const [trails, setTrails] = useState(true);
+  // Weekly pace over the 23 days before this week, from the 30-day and 7-day totals (no estimates).
+  // Trails only for the ranked repos (the list below), so the field stays calm and the trails tell the leaderboard's story.
+  const ranked = useMemo(() => new Set(rows.map((r) => r.s.id)), [rows]);
+  const tailOf = useCallback(
+    (s: EStar) => {
+      if (!ranked.has(s.id)) return null;
+      const { d7, d30, estimated } = s.g;
+      if (estimated || d7 == null || d30 == null || d30 < d7) return null;
+      return { stars: s.stars - d7, pace: ((d30 - d7) * 7) / 23 };
+    },
+    [ranked],
+  );
 
   if (isLoading || !data) return <Skeleton className="h-96" />;
-  const max = rows[0]?.v ?? 1;
 
   return (
     <div className="space-y-3">
       {!data.hasHistory && (
-        <div className="rounded-xl border border-neon-amber/30 bg-neon-amber/5 p-3 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
           StarTune records star counts every day. Until it has a week of history, this ranks by average stars per day since each repo was created.
         </div>
       )}
       {data.hasHistory && (
         <div className="flex flex-wrap gap-2">
           <Tabs value={window} onValueChange={(v) => setWindow(v as "d7" | "d30")}>
-            <TabsList className="h-9">
+            <TabsList>
               <TabsTrigger value="d7">7 days</TabsTrigger>
               <TabsTrigger value="d30">30 days</TabsTrigger>
             </TabsList>
           </Tabs>
           <Tabs value={relative ? "pct" : "abs"} onValueChange={(v) => setRelative(v === "pct")}>
-            <TabsList className="h-9">
+            <TabsList>
               <TabsTrigger value="abs">New stars</TabsTrigger>
               <TabsTrigger value="pct">% growth</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
       )}
-      <Card spotlight={false} className="gap-0 py-2">
+      {data.hasHistory && (
+        <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="momentum-title">
+          <div className="border-b px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="momentum-title" className="panel-title">
+                Momentum
+              </h2>
+              {window === "d7" && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch checked={trails} onCheckedChange={setTrails} aria-label="Show pace trails" />
+                  Pace trails
+                </label>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Popularity against new stars {window === "d7" ? "this week" : "this month"}. Diagonals mark growth rates; above a line is faster.
+              {window === "d7" &&
+                trails &&
+                " Trails (for the ranked repos below) run from each repo's weekly pace over the previous 23 days to this week: a trail rising into its dot means it's speeding up."}
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label="Colour key">
+              {HEALTH_ORDER.filter((hh) => hh !== "archived").map((hh) => (
+                <li key={hh} className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-full" style={{ background: HEALTH_CHART[hh], opacity: hh === "dormant" ? DORMANT_ALPHA : 1 }} />
+                  {HEALTH_LABEL[hh]}
+                  <span className="font-mono text-[11px]">{HEALTH_CLASS[hh]}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <MomentumPlot
+            stars={data.stars}
+            delta={delta}
+            windowLabel={window === "d7" ? "7 days" : "30 days"}
+            rates={window === "d7" ? [0.005, 0.02, 0.1] : [0.02, 0.1, 0.4]}
+            labelIds={rows.slice(0, 5).map((r) => r.s.id)}
+            pinnedId={rowHover}
+            onOpen={open}
+            tailOf={window === "d7" && trails ? tailOf : null}
+          />
+        </section>
+      )}
+      <Card className="gap-0 divide-y py-0">
         {rows.map(({ s, v }, i) => (
-          <button key={s.id} onClick={() => open(s.id)} className="group grid grid-cols-[2rem_1fr_auto] items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.03] md:grid-cols-[2rem_1fr_14rem_5rem]">
-            <span className={cn("font-mono text-sm", i < 3 ? "text-glow text-neon-magenta" : "text-muted-foreground")}>{i + 1}</span>
+          <button
+            key={s.id}
+            onClick={() => open(s.id)}
+            onMouseEnter={() => setRowHover(s.id)}
+            onMouseLeave={() => setRowHover(null)}
+            onFocus={() => setRowHover(s.id)}
+            onBlur={() => setRowHover(null)}
+            className="group grid grid-cols-[1.75rem_1fr_auto] items-center gap-3 px-4 py-2.5 text-left transition-colors duration-100 first:rounded-t-lg last:rounded-b-lg hover:bg-accent/40 md:grid-cols-[1.75rem_minmax(0,1fr)_11rem_9.5rem_6rem] lg:grid-cols-[1.75rem_minmax(0,1fr)_16rem_9.5rem_6rem]"
+          >
+            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{i + 1}</span>
             <span className="min-w-0">
-              <span className="block truncate">
-                <span className="text-muted-foreground">{s.owner}/</span>
-                <span className="font-medium group-hover:text-primary">{s.name}</span>
+              <span className="flex min-w-0 items-center gap-2 truncate text-sm">
+                <span
+                  aria-hidden
+                  className="inline-block size-2 shrink-0 rounded-full"
+                  style={
+                    s.health === "archived"
+                      ? { boxShadow: `inset 0 0 0 1.5px ${HEALTH_CHART[s.health]}` }
+                      : { background: HEALTH_CHART[s.health], opacity: s.health === "dormant" ? DORMANT_ALPHA : 1 }
+                  }
+                />
+                <span className="min-w-0 truncate">
+                  <span className="text-muted-foreground">{s.owner}/</span>
+                  <span className="font-medium underline-offset-2 group-hover:underline">{s.name}</span>
+                </span>
               </span>
               <span className="block truncate text-xs text-muted-foreground">{s.description}</span>
             </span>
-            {/* magnitude bar, value labeled */}
-            <span className="hidden items-center gap-2 md:flex">
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
-                <span
-                  className="block h-full rounded-full bg-neon-magenta shadow-[0_0_10px_var(--neon-magenta)]"
-                  style={{ width: `${Math.max(3, (v / max) * 100)}%` }}
-                />
-              </span>
+            <SpectralBar value={rows[0] ? v / rows[0].v : 0} />
+            <span className="hidden text-right font-mono text-[11px] text-muted-foreground tabular-nums md:block">
+              {fmtNum(s.stars)} total
+              {/* The readout carries whichever number the ranked value does not. */}
+              {data.hasHistory && (s.g[window] ?? 0) > 0
+                ? relative
+                  ? ` · +${fmtNum(s.g[window] ?? 0)} new`
+                  : s.stars - (s.g[window] ?? 0) > 0
+                    ? ` · ${(((s.g[window] ?? 0) / (s.stars - (s.g[window] ?? 0))) * 100).toFixed(1)}%`
+                    : ""
+                : ""}
             </span>
-            <span className="text-right font-mono text-sm">
+            <span className="text-right text-sm tabular-nums">
               {!data.hasHistory ? (
-                <span className="text-neon-magenta">{v.toFixed(1)}/day</span>
+                <span>{v.toFixed(1)}/day</span>
               ) : relative ? (
-                <span className="text-neon-magenta">{fmtPct(v)}</span>
+                <span>{fmtPct(v)}</span>
               ) : (
                 <GrowthBadge d={v} estimated={s.g.estimated} label={window === "d7" ? "7d" : "30d"} />
               )}
             </span>
           </button>
         ))}
-        {rows.length === 0 && <p className="p-6 text-center text-muted-foreground">Nothing is growing yet.</p>}
+        {rows.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nothing is growing yet.</p>}
       </Card>
     </div>
+  );
+}
+
+/** Stellar spectrum, cool to hot: M red, K orange, G yellow, A/F white, O/B blue (palette.ts). */
+const SPECTRUM = `linear-gradient(90deg, ${HEALTH_CHART.archived}, ${HEALTH_CHART.dormant} 25%, ${HEALTH_CHART.quiet} 50%, ${HEALTH_CHART.active} 72%, ${HEALTH_CHART.thriving})`;
+const LINES = "repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 3px)";
+
+/**
+ * Magnitude as a spectral bar: fine lines on a fixed cool-to-hot spectrum. Length is the value; how far the
+ * bar reaches into the spectrum repeats it, so the fastest risers burn blue-white and slow ones stay red.
+ */
+function SpectralBar({ value }: { value: number }) {
+  const f = Math.max(0.04, Math.min(1, value));
+  const lines = { maskImage: LINES, WebkitMaskImage: LINES };
+  return (
+    <span className="relative hidden h-2.5 md:block" aria-hidden>
+      <span className="absolute inset-0 opacity-15" style={{ backgroundImage: SPECTRUM, ...lines }} />
+      <span className="absolute inset-y-0 left-0" style={{ width: `${f * 100}%`, backgroundImage: SPECTRUM, backgroundSize: `${100 / f}% 100%`, ...lines }} />
+    </span>
   );
 }
 
@@ -158,7 +260,7 @@ function Releases() {
           onClick={() => open(s.id)}
           footer={
             <div className="flex items-center gap-2">
-              <Badge variant="lime" className="font-mono">
+              <Badge variant="outline" className="font-mono text-foreground/85">
                 <PackageIcon /> {s.latestReleaseTag}
               </Badge>
               <span className="text-xs text-muted-foreground">{ago(s.latestReleaseAt)}</span>
@@ -166,7 +268,7 @@ function Releases() {
           }
         />
       ))}
-      {rows.length === 0 && <p className="text-muted-foreground">No releases in the last 45 days.</p>}
+      {rows.length === 0 && <p className="text-sm text-muted-foreground">No releases in the last 45 days.</p>}
     </div>
   );
 }
@@ -185,7 +287,7 @@ function DiscoverTab() {
     );
   if (q.error)
     return (
-      <div className="glass rounded-2xl p-6 text-center text-muted-foreground">
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         Couldn't search GitHub right now.{" "}
         <Button variant="link" onClick={() => void q.refetch()}>
           <RefreshCwIcon /> Retry
@@ -198,8 +300,8 @@ function DiscoverTab() {
       <p className="text-sm text-muted-foreground">New repos (last 4 months, 50+ stars) in your most-starred topics, skipping ones you already starred.</p>
       {groups.map((g) => (
         <section key={g.topic}>
-          <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-semibold tracking-[0.18em] uppercase">
-            <span className="size-1.5 rounded-full bg-neon-cyan shadow-[0_0_8px_var(--neon-cyan)]" />
+          <h3 className="mb-3 text-sm font-semibold">
+            <span className="text-muted-foreground">#</span>
             {g.topic}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -230,7 +332,7 @@ function DiscoverTab() {
           </div>
         </section>
       ))}
-      {groups.length === 0 && <p className="text-muted-foreground">Add topics to your stars (sync first) to get recommendations.</p>}
+      {groups.length === 0 && <p className="text-sm text-muted-foreground">Add topics to your stars (sync first) to get recommendations.</p>}
     </div>
   );
 }

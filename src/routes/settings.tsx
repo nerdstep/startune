@@ -49,15 +49,15 @@ function Settings() {
           <CardHeader>
             <div>
               <CardTitle className="flex items-center gap-2">
-                <BrainCircuitIcon className="size-4 text-neon-violet" /> AI model
+                <BrainCircuitIcon className="size-4 text-muted-foreground" /> AI model
               </CardTitle>
               <CardDescription>
-                Using <code className="text-primary">@cf/cloudflare/{me.data?.aiModel}</code> on Workers AI. Set <code>CLEF_MODEL</code> to <code>clef</code> for the larger model.
+                Using <code className="text-foreground">@cf/cloudflare/{me.data?.aiModel}</code> on Workers AI. Set <code>CLEF_MODEL</code> to <code>clef</code> for the larger model.
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="flex items-start gap-2 text-xs text-muted-foreground">
-            <ShieldCheckIcon className="size-4 shrink-0 text-neon-lime" />
+            <ShieldCheckIcon className="size-4 shrink-0 text-success" />
             Your GitHub token is encrypted with AES-GCM in your own D1 database. Repo metadata is sent to Workers AI only when you run Clef.
           </CardContent>
         </Card>

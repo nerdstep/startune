@@ -1,17 +1,8 @@
 import * as React from "react";
-import { useSpotlight } from "@/lib/use-spotlight";
 import { cn } from "@/lib/utils";
 
-function Card({ className, spotlight = true, ...props }: React.ComponentProps<"div"> & { spotlight?: boolean }) {
-  const ref = useSpotlight<HTMLDivElement>(spotlight);
-  return (
-    <div
-      ref={ref}
-      data-slot="card"
-      className={cn("glass flex flex-col gap-4 rounded-2xl py-5 text-card-foreground", spotlight && "spotlight", className)}
-      {...props}
-    />
-  );
+function Card({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="card" className={cn("flex flex-col gap-4 rounded-lg border bg-card py-5 text-card-foreground", className)} {...props} />;
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
@@ -19,11 +10,11 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-sm font-semibold tracking-wide", className)} {...props} />;
+  return <div className={cn("text-sm font-semibold", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("text-xs text-muted-foreground", className)} {...props} />;
+  return <div className={cn("mt-0.5 text-[13px] text-muted-foreground", className)} {...props} />;
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {

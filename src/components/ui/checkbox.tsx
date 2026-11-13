@@ -8,16 +8,16 @@ function Checkbox({ className, indeterminate, ...props }: Omit<CheckboxPrimitive
       data-slot="checkbox"
       indeterminate={indeterminate}
       className={cn(
-        "peer grid size-4 shrink-0 place-items-center rounded-[5px] border border-input bg-white/[0.03] outline-none transition-all",
-        "data-[checked]:border-primary data-[checked]:bg-primary data-[checked]:text-primary-foreground data-[checked]:shadow-[0_0_12px_var(--neon-cyan)]",
+        "peer grid size-4 shrink-0 place-items-center rounded-sm border border-input outline-none transition-colors duration-100",
+        "data-[checked]:border-primary data-[checked]:bg-primary data-[checked]:text-primary-foreground",
         "data-[indeterminate]:border-primary data-[indeterminate]:bg-primary data-[indeterminate]:text-primary-foreground",
-        "focus-visible:ring-[3px] focus-visible:ring-ring data-[disabled]:opacity-50",
+        "focus-visible:ring-2 focus-visible:ring-ring data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator className="flex items-center justify-center">
-        {indeterminate ? <MinusIcon className="size-3.5" strokeWidth={3} /> : <CheckIcon className="size-3.5" strokeWidth={3} />}
+        {indeterminate ? <MinusIcon className="size-3" strokeWidth={3} /> : <CheckIcon className="size-3" strokeWidth={3} />}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

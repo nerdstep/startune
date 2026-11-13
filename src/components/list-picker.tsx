@@ -67,7 +67,7 @@ export function ListPicker({
               e.stopPropagation();
             }}
             placeholder="Find or create a list…"
-            className="h-9 w-full rounded-lg border border-input bg-white/[0.03] pr-2 pl-8 text-sm outline-none focus:border-primary/60"
+            className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus:border-ring"
           />
         </div>
         <div className="max-h-64 overflow-y-auto">
@@ -78,19 +78,19 @@ export function ListPicker({
               <button
                 key={l.id}
                 onClick={() => toggle(l.id)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-white/[0.07]"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
               >
                 <span
                   className={cn(
-                    "grid size-4 place-items-center rounded-[5px] border border-input",
-                    state !== "none" && "border-primary bg-primary text-primary-foreground shadow-[0_0_10px_var(--neon-cyan)]",
+                    "grid size-4 place-items-center rounded-sm border border-input",
+                    state !== "none" && "border-primary bg-primary text-primary-foreground",
                   )}
                 >
                   {state === "all" && <CheckIcon className="size-3" strokeWidth={3} />}
                   {state === "some" && <MinusIcon className="size-3" strokeWidth={3} />}
                 </span>
                 <span className="flex-1 truncate">{l.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{data.listCounts.get(l.id) ?? 0}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{data.listCounts.get(l.id) ?? 0}</span>
               </button>
             );
           })}
@@ -100,7 +100,7 @@ export function ListPicker({
           <button
             onClick={() => void createAndAdd()}
             disabled={create.isPending}
-            className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary/40 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10"
+            className="mt-1 flex w-full items-center gap-2 rounded-md border-t px-2 py-1.5 text-left text-sm hover:bg-accent"
           >
             <PlusIcon className="size-4" /> Create “{q.trim()}”
           </button>

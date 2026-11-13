@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 import { Login } from "@/components/login";
 import { RepoDetailProvider } from "@/components/repo";
 import { Logo, Shell } from "@/components/shell";
-import { Starfield } from "@/components/starfield";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useMe } from "@/lib/queries";
 import { SyncProvider } from "@/lib/sync-context";
@@ -17,12 +16,9 @@ function Root() {
   const me = useMe();
   return (
     <TooltipProvider>
-      <div className="nebula" />
-      <div className="grid-floor" />
-      <Starfield />
       {me.isLoading ? (
         <div className="grid min-h-dvh place-items-center">
-          <Logo className="animate-pulse" />
+          <Logo className="opacity-60" />
         </div>
       ) : me.data?.user ? (
         <SyncProvider>
@@ -40,8 +36,8 @@ function Root() {
         position="bottom-right"
         toastOptions={{
           classNames: {
-            toast: "!bg-popover !border-primary/30 !text-foreground !backdrop-blur-xl !shadow-[0_0_30px_-10px_var(--neon-cyan)] !rounded-xl",
-            actionButton: "!bg-primary !text-primary-foreground",
+            toast: "!bg-popover !border-border !text-foreground !shadow-xl !shadow-black/40 !rounded-lg",
+            actionButton: "!bg-transparent !border !border-primary/80 !text-primary !rounded-md",
           },
         }}
       />

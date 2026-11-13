@@ -13,6 +13,8 @@ export default defineConfig({
     cloudflare({ remoteBindings: process.env.CF_LOCAL_ONLY !== "1" }),
   ],
   resolve: {
+    // Base UI's pre-bundled chunks otherwise embed a second copy of React ("Invalid hook call").
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
       "@shared": new URL("./shared", import.meta.url).pathname,
