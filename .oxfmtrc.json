@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/oxfmt/configuration_schema.json",
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "singleQuote": true,
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
+  "trailingComma": "all",
+  "semi": false,
+  "arrowParens": "always",
+  "bracketSameLine": false,
+  "bracketSpacing": true,
+  "sortImports": true,
+  "sortPackageJson": true,
+  "overrides": [
+    {
+      "files": ["**/*.css"],
+      "options": { "singleQuote": false }
+    },
+    {
+      "files": ["**/*.jsonc", "**/*.json5", "wrangler.jsonc"],
+      "options": { "trailingComma": "none" }
+    }
+  ],
+  "ignorePatterns": [
+    "**/node_modules",
+    "dist",
+    "public",
+    ".impeccable",
+    ".tanstack",
+    ".wrangler",
+    "src/routeTree.gen.ts",
+    "worker/worker-configuration.d.ts",
+    "**/*.md",
+    "**/*.yml",
+    "**/*.yaml",
+    "**/*.toml"
+  ]
+}

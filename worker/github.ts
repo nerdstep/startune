@@ -1,43 +1,61 @@
-import { z } from "zod";
-import type { Repo, Stargazer, Upkeep } from "../shared/schemas";
-import { HttpError } from "./env";
+import { z } from 'zod'
 
-const UA = "StarTune (+https://github.com)";
+import type { Repo, Stargazer, Upkeep } from '../shared/schemas'
+import { HttpError } from './env'
+
+const UA = 'StarTune (+https://github.com)'
 
 export class GitHubError extends HttpError {}
 
 interface GqlErr {
-  type?: string;
-  message: string;
-  path?: Array<string | number>;
+  type?: string
+  message: string
+  path?: Array<string | number>
 }
 
 /** Run a GraphQL query against GitHub. Partial data with errors is returned when `allowPartial`. */
-export async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}, opts: { allowPartial?: boolean } = {}): Promise<T> {
-  const res = await fetch("https://api.github.com/graphql", {
-    method: "POST",
+export async function gql<T>(
+  token: string,
+  query: string,
+  variables: Record<string, unknown> = {},
+  opts: { allowPartial?: boolean } = {},
+): Promise<T> {
+  const res = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "User-Agent": UA,
+      'Content-Type': 'application/json',
+      'User-Agent': UA,
     },
     body: JSON.stringify({ query, variables }),
-  });
-  if (res.status === 401) throw new GitHubError(401, "GitHub rejected the token. Sign in again.");
+  })
+  if (res.status === 401) {
+    throw new GitHubError(401, 'GitHub rejected the token. Sign in again.')
+  }
   if (res.status === 403 || res.status === 429) {
-    const reset = res.headers.get("x-ratelimit-reset");
-    const when = reset ? ` Try again after ${new Date(Number(reset) * 1000).toLocaleTimeString("en-US")}.` : "";
-    throw new GitHubError(429, `GitHub rate limit hit.${when}`);
+    const reset = res.headers.get('x-ratelimit-reset')
+    const when = reset
+      ? ` Try again after ${new Date(Number(reset) * 1000).toLocaleTimeString('en-US')}.`
+      : ''
+    throw new GitHubError(429, `GitHub rate limit hit.${when}`)
   }
-  if (!res.ok) throw new GitHubError(502, `GitHub returned ${res.status}`);
-  const body = (await res.json()) as { data?: T; errors?: GqlErr[] };
+  if (!res.ok) {
+    throw new GitHubError(502, `GitHub returned ${res.status}`)
+  }
+  const body = (await res.json()) as { data?: T; errors?: GqlErr[] }
   if (body.errors?.length) {
-    const scopes = body.errors.find((e) => e.type === "INSUFFICIENT_SCOPES");
-    if (scopes) throw new GitHubError(403, `Missing GitHub permission: ${scopes.message}`);
-    if (!opts.allowPartial || !body.data) throw new GitHubError(502, body.errors.map((e) => e.message).join("; "));
+    const scopes = body.errors.find((e) => e.type === 'INSUFFICIENT_SCOPES')
+    if (scopes) {
+      throw new GitHubError(403, `Missing GitHub permission: ${scopes.message}`)
+    }
+    if (!opts.allowPartial || !body.data) {
+      throw new GitHubError(502, body.errors.map((e) => e.message).join('; '))
+    }
   }
-  if (!body.data) throw new GitHubError(502, "Empty response from GitHub");
-  return body.data;
+  if (!body.data) {
+    throw new GitHubError(502, 'Empty response from GitHub')
+  }
+  return body.data
 }
 
 export async function rest(token: string, path: string, init: RequestInit = {}): Promise<Response> {
@@ -45,12 +63,12 @@ export async function rest(token: string, path: string, init: RequestInit = {}):
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": UA,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': UA,
       ...init.headers,
     },
-  });
+  })
 }
 
 /* ---------- Repository shape ---------- */
@@ -92,7 +110,7 @@ export const REPO_FIELDS = /* GraphQL */ `
       tagName
     }
   }
-`;
+`
 
 export const GqlRepo = z.object({
   id: z.string(),
@@ -103,7 +121,9 @@ export const GqlRepo = z.object({
   url: z.string(),
   homepageUrl: z.string().nullish(),
   primaryLanguage: z.object({ name: z.string(), color: z.string().nullish() }).nullish(),
-  repositoryTopics: z.object({ nodes: z.array(z.object({ topic: z.object({ name: z.string() }) }).nullable()) }),
+  repositoryTopics: z.object({
+    nodes: z.array(z.object({ topic: z.object({ name: z.string() }) }).nullable()),
+  }),
   stargazerCount: z.number(),
   forkCount: z.number(),
   isArchived: z.boolean(),
@@ -112,8 +132,8 @@ export const GqlRepo = z.object({
   createdAt: z.string().nullish(),
   pushedAt: z.string().nullish(),
   latestRelease: z.object({ publishedAt: z.string().nullish(), tagName: z.string() }).nullish(),
-});
-export type GqlRepo = z.infer<typeof GqlRepo>;
+})
+export type GqlRepo = z.infer<typeof GqlRepo>
 
 export function toRepo(r: GqlRepo): Repo {
   return {
@@ -131,23 +151,23 @@ export function toRepo(r: GqlRepo): Repo {
     forks: r.forkCount,
     isArchived: r.isArchived,
     isFork: r.isFork,
-    license: r.licenseInfo?.spdxId && r.licenseInfo.spdxId !== "NOASSERTION" ? r.licenseInfo.spdxId : null,
+    license:
+      r.licenseInfo?.spdxId && r.licenseInfo.spdxId !== 'NOASSERTION' ? r.licenseInfo.spdxId : null,
     ownerAvatar: r.owner.avatarUrl ?? null,
     createdAt: r.createdAt ?? null,
     pushedAt: r.pushedAt ?? null,
     latestReleaseAt: r.latestRelease?.publishedAt ?? null,
     latestReleaseTag: r.latestRelease?.tagName ?? null,
-  };
+  }
 }
 
 /* ---------- Queries ---------- */
 
 export async function viewer(token: string) {
-  const data = await gql<{ viewer: { id: string; login: string; name: string | null; avatarUrl: string } }>(
-    token,
-    `query { viewer { id login name avatarUrl } }`,
-  );
-  return data.viewer;
+  const data = await gql<{
+    viewer: { id: string; login: string; name: string | null; avatarUrl: string }
+  }>(token, `query { viewer { id login name avatarUrl } }`)
+  return data.viewer
 }
 
 const StarPage = z.object({
@@ -158,7 +178,7 @@ const StarPage = z.object({
       edges: z.array(z.object({ starredAt: z.string(), node: GqlRepo })),
     }),
   }),
-});
+})
 
 export async function starPage(token: string, after: string | null) {
   const data = await gql<unknown>(
@@ -174,15 +194,15 @@ export async function starPage(token: string, after: string | null) {
     }
     ${REPO_FIELDS}`,
     { after },
-  );
-  return StarPage.parse(data).viewer.starredRepositories;
+  )
+  return StarPage.parse(data).viewer.starredRepositories
 }
 
 const ItemsConn = z.object({
   totalCount: z.number(),
   pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
   nodes: z.array(z.object({ id: z.string().optional() }).nullable()),
-});
+})
 
 const ListsPage = z.object({
   viewer: z.object({
@@ -200,21 +220,21 @@ const ListsPage = z.object({
       ),
     }),
   }),
-});
+})
 
 export interface GhList {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  isPrivate: boolean;
-  repoIds: string[];
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  isPrivate: boolean
+  repoIds: string[]
 }
 
 /** Fetch all of the viewer's lists with every item. Costs 1 + extra pages for big lists. */
 export async function allLists(token: string): Promise<GhList[]> {
-  const out: GhList[] = [];
-  let after: string | null = null;
+  const out: GhList[] = []
+  let after: string | null = null
   do {
     const raw: unknown = await gql<unknown>(
       token,
@@ -234,15 +254,15 @@ export async function allLists(token: string): Promise<GhList[]> {
         }
       }`,
       { after },
-    );
-    const page = ListsPage.parse(raw).viewer.lists;
+    )
+    const page = ListsPage.parse(raw).viewer.lists
     for (const l of page.nodes) {
-      const repoIds = l.items.nodes.flatMap((n) => (n?.id ? [n.id] : []));
-      let cursor = l.items.pageInfo.hasNextPage ? l.items.pageInfo.endCursor : null;
+      const repoIds = l.items.nodes.flatMap((n) => (n?.id ? [n.id] : []))
+      let cursor = l.items.pageInfo.hasNextPage ? l.items.pageInfo.endCursor : null
       while (cursor) {
-        const more = await listItemsPage(token, l.id, cursor);
-        repoIds.push(...more.ids);
-        cursor = more.next;
+        const more = await listItemsPage(token, l.id, cursor)
+        repoIds.push(...more.ids)
+        cursor = more.next
       }
       out.push({
         id: l.id,
@@ -251,11 +271,11 @@ export async function allLists(token: string): Promise<GhList[]> {
         description: l.description ?? null,
         isPrivate: l.isPrivate,
         repoIds,
-      });
+      })
     }
-    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
-  } while (after);
-  return out;
+    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null
+  } while (after)
+  return out
 }
 
 async function listItemsPage(token: string, listId: string, after: string) {
@@ -273,12 +293,12 @@ async function listItemsPage(token: string, listId: string, after: string) {
       }
     }`,
     { id: listId, after },
-  );
-  const items = ItemsConn.parse(raw.node?.items);
+  )
+  const items = ItemsConn.parse(raw.node?.items)
   return {
     ids: items.nodes.flatMap((n) => (n?.id ? [n.id] : [])),
     next: items.pageInfo.hasNextPage ? items.pageInfo.endCursor : null,
-  };
+  }
 }
 
 /** Refresh up to 100 repos by node id. Missing (deleted/private) repos come back as null. */
@@ -288,11 +308,11 @@ export async function reposByIds(token: string, ids: string[]): Promise<Array<Re
     `query($ids: [ID!]!) { nodes(ids: $ids) { ...RepoFields } } ${REPO_FIELDS}`,
     { ids },
     { allowPartial: true },
-  );
+  )
   return data.nodes.map((n) => {
-    const parsed = GqlRepo.safeParse(n);
-    return parsed.success ? toRepo(parsed.data) : null;
-  });
+    const parsed = GqlRepo.safeParse(n)
+    return parsed.success ? toRepo(parsed.data) : null
+  })
 }
 
 /** Several topic searches in a single request using aliases. */
@@ -303,27 +323,46 @@ export async function searchTopics(token: string, queries: Array<{ key: string; 
         nodes { ...RepoFields }
       }`,
     )
-    .join("\n");
-  const data = await gql<Record<string, { nodes: unknown[] }>>(token, `query { ${fields} } ${REPO_FIELDS}`, {}, { allowPartial: true });
+    .join('\n')
+  const data = await gql<Record<string, { nodes: unknown[] }>>(
+    token,
+    `query { ${fields} } ${REPO_FIELDS}`,
+    {},
+    { allowPartial: true },
+  )
   return queries.map((q, i) => ({
     key: q.key,
     repos: (data[`s${i}`]?.nodes ?? []).flatMap((n) => {
-      const p = GqlRepo.safeParse(n);
-      return p.success ? [toRepo(p.data)] : [];
+      const p = GqlRepo.safeParse(n)
+      return p.success ? [toRepo(p.data)] : []
     }),
-  }));
+  }))
 }
 
 /* ---------- Your repos ---------- */
 
-const Who = z.object({ login: z.string() }).nullish();
+const Who = z.object({ login: z.string() }).nullish()
 const OwnNode = GqlRepo.extend({
   watchers: z.object({ totalCount: z.number() }),
   issues: z.object({ totalCount: z.number() }),
   pullRequests: z.object({ totalCount: z.number() }),
-  oldPrs: z.object({ nodes: z.array(z.object({ createdAt: z.string(), isDraft: z.boolean(), author: Who }).nullable()) }),
-  newIssues: z.object({ nodes: z.array(z.object({ createdAt: z.string(), author: Who, comments: z.object({ totalCount: z.number() }) }).nullable()) }),
-});
+  oldPrs: z.object({
+    nodes: z.array(
+      z.object({ createdAt: z.string(), isDraft: z.boolean(), author: Who }).nullable(),
+    ),
+  }),
+  newIssues: z.object({
+    nodes: z.array(
+      z
+        .object({
+          createdAt: z.string(),
+          author: Who,
+          comments: z.object({ totalCount: z.number() }),
+        })
+        .nullable(),
+    ),
+  }),
+})
 
 const OwnPage = z.object({
   viewer: z.object({
@@ -332,15 +371,19 @@ const OwnPage = z.object({
       nodes: z.array(z.unknown()),
     }),
   }),
-});
+})
 
 /** Public repos the viewer owns (forks included), most-starred first, with what's waiting on them. Up to 300. */
-export async function ownRepos(token: string, login: string): Promise<Array<{ repo: Repo; upkeep: Upkeep }>> {
-  const out: Array<{ repo: Repo; upkeep: Upkeep }> = [];
-  let after: string | null = null;
-  const me = login.toLowerCase();
-  const byOther = (a: { login: string } | null | undefined) => !!a && a.login.toLowerCase() !== me;
-  for (let page = 0; page < 3; page++) {
+export async function ownRepos(
+  token: string,
+  login: string,
+): Promise<Array<{ repo: Repo; upkeep: Upkeep }>> {
+  const out: Array<{ repo: Repo; upkeep: Upkeep }> = []
+  let after: string | null = null
+  const me = login.toLowerCase()
+  const byOther = (a: { login: string } | null | undefined) =>
+    a != null && a.login.toLowerCase() !== me
+  for (let page = 0; page < 3; page += 1) {
     const raw: unknown = await gql<unknown>(
       token,
       `query($after: String) {
@@ -361,14 +404,21 @@ export async function ownRepos(token: string, login: string): Promise<Array<{ re
       ${REPO_FIELDS}`,
       { after },
       { allowPartial: true },
-    );
-    const conn = OwnPage.parse(raw).viewer.repositories;
+    )
+    const conn = OwnPage.parse(raw).viewer.repositories
     for (const n of conn.nodes) {
-      const p = OwnNode.safeParse(n);
-      if (!p.success) continue;
-      const r = p.data;
-      const prs = r.oldPrs.nodes.filter((x): x is NonNullable<typeof x> => !!x && !x.isDraft && byOther(x.author));
-      const quiet = r.newIssues.nodes.filter((x): x is NonNullable<typeof x> => !!x && x.comments.totalCount === 0 && byOther(x.author));
+      const p = OwnNode.safeParse(n)
+      if (!p.success) {
+        continue
+      }
+      const r = p.data
+      const prs = r.oldPrs.nodes.filter(
+        (x): x is NonNullable<typeof x> => x != null && !x.isDraft && byOther(x.author),
+      )
+      const quiet = r.newIssues.nodes.filter(
+        (x): x is NonNullable<typeof x> =>
+          x != null && x.comments.totalCount === 0 && byOther(x.author),
+      )
       out.push({
         repo: toRepo(r),
         upkeep: {
@@ -380,12 +430,14 @@ export async function ownRepos(token: string, login: string): Promise<Array<{ re
           oldestUnansweredAt: quiet.at(-1)?.createdAt ?? null,
           watchers: r.watchers.totalCount,
         },
-      });
+      })
     }
-    after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
-    if (!after) break;
+    after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null
+    if (!after) {
+      break
+    }
   }
-  return out;
+  return out
 }
 
 const RecentGazers = z.object({
@@ -396,17 +448,22 @@ const RecentGazers = z.object({
         edges: z.array(
           z.object({
             starredAt: z.string(),
-            node: z.object({ login: z.string(), name: z.string().nullish(), avatarUrl: z.string().nullish(), followers: z.object({ totalCount: z.number() }) }),
+            node: z.object({
+              login: z.string(),
+              name: z.string().nullish(),
+              avatarUrl: z.string().nullish(),
+              followers: z.object({ totalCount: z.number() }),
+            }),
           }),
         ),
       }),
     })
     .nullable(),
-});
+})
 
 /** Older stars are read in full up to this many pages of 100; beyond it, this many pages are sampled. */
-const EXACT_PAGES = 9;
-const SAMPLE_PAGES = 9;
+const EXACT_PAGES = 9
+const SAMPLE_PAGES = 9
 
 /**
  * Rebuild a repo's star history: the newest 100 stargazers exactly (GraphQL), and the older ones from
@@ -433,93 +490,135 @@ export async function chartRepo(
       }
     }`,
     { id },
-  );
-  const sg = RecentGazers.parse(raw).node?.stargazers;
-  if (!sg) return null;
-  const total = sg.totalCount;
+  )
+  const sg = RecentGazers.parse(raw).node?.stargazers
+  if (!sg) {
+    return null
+  }
+  const total = sg.totalCount
   const recent: Stargazer[] = sg.edges.map((e) => ({
     login: e.node.login,
     name: e.node.name ?? null,
     avatarUrl: e.node.avatarUrl ?? null,
     followers: e.node.followers.totalCount,
     starredAt: e.starredAt,
-  }));
-  const now = Date.now();
-  const pts: Array<[number, number]> = [];
+  }))
+  const now = Date.now()
+  const pts: Array<[number, number]> = []
   // Recent window, oldest first: the k-th of n is star number total - n + k + 1.
-  const asc = [...recent].reverse();
-  asc.forEach((g, k) => pts.push([new Date(g.starredAt).getTime(), total - asc.length + k + 1]));
-  let exactSince = 0;
-  const oldestRecent = asc.length ? new Date(asc[0]!.starredAt).getTime() : now;
+  const asc = [...recent].reverse()
+  for (const [k, g] of asc.entries()) {
+    pts.push([new Date(g.starredAt).getTime(), total - asc.length + k + 1])
+  }
+  let exactSince = 0
+  const first = asc[0]
+  const oldestRecent = first ? new Date(first.starredAt).getTime() : now
 
-  const older = total - asc.length;
-  const prevTotal = prev?.history.length ? prev.history[prev.history.length - 1]![1] : null;
+  const older = total - asc.length
+  const prevTotal = prev?.history.at(-1)?.[1] ?? null
   if (prev && prevTotal != null && older > 0 && prevTotal >= older && prevTotal <= total) {
     // Incremental: the earlier chart covers everything before the newest 100 stars.
-    for (const pt of prev.history) if (pt[0] < oldestRecent) pts.push([pt[0], Math.min(pt[1], older)]);
-    exactSince = prev.exactSince == null ? oldestRecent : Math.min(prev.exactSince, oldestRecent);
+    for (const pt of prev.history) {
+      if (pt[0] < oldestRecent) {
+        pts.push([pt[0], Math.min(pt[1], older)])
+      }
+    }
+    exactSince = prev.exactSince == null ? oldestRecent : Math.min(prev.exactSince, oldestRecent)
   } else if (older > 0) {
-    const olderPages = Math.ceil(older / 100);
-    const exact = olderPages <= EXACT_PAGES;
-    const last = Math.min(400, olderPages);
+    const olderPages = Math.ceil(older / 100)
+    const exact = olderPages <= EXACT_PAGES
+    const last = Math.min(400, olderPages)
     const pages = exact
       ? Array.from({ length: olderPages }, (_, i) => i + 1)
-      : [...new Set(Array.from({ length: SAMPLE_PAGES }, (_, i) => 1 + Math.round((i * (last - 1)) / (SAMPLE_PAGES - 1))))];
+      : [
+          ...new Set(
+            Array.from(
+              { length: SAMPLE_PAGES },
+              (_, i) => 1 + Math.round((i * (last - 1)) / (SAMPLE_PAGES - 1)),
+            ),
+          ),
+        ]
     const got = await Promise.all(
       pages.map(async (p) => {
-        const res = await rest(token, `/repos/${fullName}/stargazers?per_page=100&page=${p}`, { headers: { Accept: "application/vnd.github.star+json" } });
-        if (!res.ok) return { p, rows: [] as Array<{ starred_at: string }>, failed: true };
-        return { p, rows: (await res.json()) as Array<{ starred_at: string }>, failed: false };
+        const res = await rest(token, `/repos/${fullName}/stargazers?per_page=100&page=${p}`, {
+          headers: { Accept: 'application/vnd.github.star+json' },
+        })
+        if (!res.ok) {
+          return { p, rows: [] as Array<{ starred_at: string }>, failed: true }
+        }
+        return { p, rows: (await res.json()) as Array<{ starred_at: string }>, failed: false }
       }),
-    );
+    )
     for (const { p, rows } of got) {
-      const base = (p - 1) * 100;
+      const base = (p - 1) * 100
       // The last row that is still older than the recent window (the final page overlaps it).
-      const lastOlder = Math.min(rows.length - 1, older - base - 1);
-      const take = exact ? rows.map((_, i) => i) : [0, lastOlder];
+      const lastOlder = Math.min(rows.length - 1, older - base - 1)
+      const take = exact ? rows.map((_, i) => i) : [0, lastOlder]
       for (const i of new Set(take)) {
-        const row = rows[i];
-        if (row && base + i < older) pts.push([new Date(row.starred_at).getTime(), base + i + 1]);
+        const row = rows[i]
+        if (row && base + i < older) {
+          pts.push([new Date(row.starred_at).getTime(), base + i + 1])
+        }
       }
     }
     // A missing page leaves a gap that is interpolated, so the history is only exact from the recent window.
-    if (!exact || got.some((g) => g.failed)) exactSince = oldestRecent;
+    if (!exact || got.some((g) => g.failed)) {
+      exactSince = oldestRecent
+    }
   }
 
-  pts.sort((a, b) => a[0] - b[0]);
+  pts.sort((a, b) => a[0] - b[0])
   // Unstars can make sampled counts disagree slightly; keep the curve monotonic.
-  for (let i = 1; i < pts.length; i++) if (pts[i]![1] < pts[i - 1]![1]) pts[i]![1] = pts[i - 1]![1];
-  pts.push([now, total]);
-  return { history: thin(pts, 320), exactSince, recent: recent.slice(0, 30), total };
+  let floor = -Infinity
+  for (const pt of pts) {
+    if (pt[1] < floor) {
+      pt[1] = floor
+    }
+    floor = pt[1]
+  }
+  pts.push([now, total])
+  return { history: thin(pts, 320), exactSince, recent: recent.slice(0, 30), total }
 }
 
 /** Keep at most n points, always keeping the newest 100 and the ends. Thinned exact stretches interpolate
  * between kept stars; at chart scale (one point per few pixels) that is indistinguishable. */
 function thin(pts: Array<[number, number]>, n: number): Array<[number, number]> {
-  if (pts.length <= n) return pts;
-  const head = pts.slice(0, -101);
-  const tail = pts.slice(-101);
-  const step = Math.ceil(head.length / (n - tail.length));
-  return [...head.filter((_, i) => i % step === 0), ...tail];
+  if (pts.length <= n) {
+    return pts
+  }
+  const head = pts.slice(0, -101)
+  const tail = pts.slice(-101)
+  const step = Math.ceil(head.length / (n - tail.length))
+  return [...head.filter((_, i) => i % step === 0), ...tail]
 }
 
 /** What a sample of people starred recently, in one aliased query. */
 export async function alsoStarred(token: string, logins: string[]): Promise<Repo[][]> {
-  if (logins.length === 0) return [];
-  const vars = Object.fromEntries(logins.map((l, i) => [`l${i}`, l]));
-  const decl = logins.map((_, i) => `$l${i}: String!`).join(", ");
+  if (logins.length === 0) {
+    return []
+  }
+  const vars = Object.fromEntries(logins.map((l, i) => [`l${i}`, l]))
+  const decl = logins.map((_, i) => `$l${i}: String!`).join(', ')
   const fields = logins
-    .map((_, i) => `u${i}: user(login: $l${i}) { starredRepositories(first: 20, orderBy: { field: STARRED_AT, direction: DESC }) { nodes { ...RepoFields } } }`)
-    .join("\n");
-  const data = await gql<Record<string, { starredRepositories: { nodes: unknown[] } } | null>>(token, `query(${decl}) { ${fields} } ${REPO_FIELDS}`, vars, {
-    allowPartial: true,
-  });
+    .map(
+      (_, i) =>
+        `u${i}: user(login: $l${i}) { starredRepositories(first: 20, orderBy: { field: STARRED_AT, direction: DESC }) { nodes { ...RepoFields } } }`,
+    )
+    .join('\n')
+  const data = await gql<Record<string, { starredRepositories: { nodes: unknown[] } } | null>>(
+    token,
+    `query(${decl}) { ${fields} } ${REPO_FIELDS}`,
+    vars,
+    {
+      allowPartial: true,
+    },
+  )
   return logins.map((_, i) =>
     (data[`u${i}`]?.starredRepositories.nodes ?? []).flatMap((n) => {
-      const p = GqlRepo.safeParse(n);
-      return p.success ? [toRepo(p.data)] : [];
+      const p = GqlRepo.safeParse(n)
+      return p.success ? [toRepo(p.data)] : []
     }),
-  );
+  )
 }
 
 /* ---------- Mutations ---------- */
@@ -531,11 +630,24 @@ export async function setListsForRepo(token: string, repoId: string, listIds: st
       updateUserListsForItem(input: { itemId: $itemId, listIds: $listIds }) { clientMutationId }
     }`,
     { itemId: repoId, listIds },
-  );
+  )
 }
 
-export async function createList(token: string, input: { name: string; description?: string; isPrivate: boolean }) {
-  const data = await gql<{ createUserList: { list: { id: string; name: string; slug: string; description: string | null; isPrivate: boolean } } }>(
+export async function createList(
+  token: string,
+  input: { name: string; description?: string; isPrivate: boolean },
+) {
+  const data = await gql<{
+    createUserList: {
+      list: {
+        id: string
+        name: string
+        slug: string
+        description: string | null
+        isPrivate: boolean
+      }
+    }
+  }>(
     token,
     `mutation($name: String!, $description: String, $isPrivate: Boolean) {
       createUserList(input: { name: $name, description: $description, isPrivate: $isPrivate }) {
@@ -543,12 +655,26 @@ export async function createList(token: string, input: { name: string; descripti
       }
     }`,
     input,
-  );
-  return data.createUserList.list;
+  )
+  return data.createUserList.list
 }
 
-export async function updateList(token: string, listId: string, input: { name?: string; description?: string; isPrivate?: boolean }) {
-  const data = await gql<{ updateUserList: { list: { id: string; name: string; slug: string; description: string | null; isPrivate: boolean } } }>(
+export async function updateList(
+  token: string,
+  listId: string,
+  input: { name?: string; description?: string; isPrivate?: boolean },
+) {
+  const data = await gql<{
+    updateUserList: {
+      list: {
+        id: string
+        name: string
+        slug: string
+        description: string | null
+        isPrivate: boolean
+      }
+    }
+  }>(
     token,
     `mutation($listId: ID!, $name: String, $description: String, $isPrivate: Boolean) {
       updateUserList(input: { listId: $listId, name: $name, description: $description, isPrivate: $isPrivate }) {
@@ -556,18 +682,30 @@ export async function updateList(token: string, listId: string, input: { name?: 
       }
     }`,
     { listId, ...input },
-  );
-  return data.updateUserList.list;
+  )
+  return data.updateUserList.list
 }
 
 export async function deleteList(token: string, listId: string) {
-  await gql(token, `mutation($listId: ID!) { deleteUserList(input: { listId: $listId }) { clientMutationId } }`, { listId });
+  await gql(
+    token,
+    `mutation($listId: ID!) { deleteUserList(input: { listId: $listId }) { clientMutationId } }`,
+    { listId },
+  )
 }
 
 export async function removeStar(token: string, repoId: string) {
-  await gql(token, `mutation($id: ID!) { removeStar(input: { starrableId: $id }) { clientMutationId } }`, { id: repoId });
+  await gql(
+    token,
+    `mutation($id: ID!) { removeStar(input: { starrableId: $id }) { clientMutationId } }`,
+    { id: repoId },
+  )
 }
 
 export async function addStar(token: string, repoId: string) {
-  await gql(token, `mutation($id: ID!) { addStar(input: { starrableId: $id }) { clientMutationId } }`, { id: repoId });
+  await gql(
+    token,
+    `mutation($id: ID!) { addStar(input: { starrableId: $id }) { clientMutationId } }`,
+    { id: repoId },
+  )
 }
