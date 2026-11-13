@@ -163,6 +163,10 @@ function colorOf(s: EStar, colorBy: 'health' | 'language', topLangs: string[]): 
 }
 
 /** Arrow keys orbit the camera: [yaw, pitch] per press. */
+/** One pass of the sync scan across the field, and how far behind it stars keep their ring. */
+const SCAN_MS = 3200
+const SCAN_TRAIL = 0.14
+
 const TURN: Record<string, readonly [number, number]> = {
   ArrowLeft: [-0.12, 0],
   ArrowRight: [0.12, 0],
@@ -183,6 +187,7 @@ function StarFieldImpl({
   highlightSet = null,
   ringSet = null,
   pinnedId = null,
+  scanning = false,
   colorBy = 'health',
   topLangs = NO_LANGS,
   hiddenKeys = null,
@@ -208,6 +213,11 @@ function StarFieldImpl({
   ringSet?: Set<string> | null
   /** Pin a callout on one star without dimming the others (e.g. the hovered row). */
   pinnedId?: string | null
+  /**
+   * A sync is running: a lime scan plane sweeps the field along the year axis and each star it
+   * passes flashes a fading ring (the first-run scan, on real data). Off under reduced motion.
+   */
+  scanning?: boolean
   /** Colour points by health class (default) or by language (top three languages plus Other). */
   colorBy?: 'health' | 'language'
   topLangs?: string[]
@@ -500,6 +510,31 @@ function StarFieldImpl({
     projected.current = proj
     titles()
 
+    // Sync scan: the plane sweeps time (x) from oldest to newest; stars just behind it ring.
+    if (scanning && !reduce) {
+      const t = ((performance.now() % SCAN_MS) / SCAN_MS) * 2.2 - 1.1
+      const x = Math.max(-1, Math.min(1, t))
+      const [a, b, c, d] = [P(x, -1, -1), P(x, -1, 1), P(x, 1, 1), P(x, 1, -1)]
+      ctx.strokeStyle = ACCENT
+      ctx.lineWidth = 1
+      ctx.globalAlpha = 0.16
+      seg(b, c)
+      seg(c, d)
+      seg(d, a)
+      ctx.globalAlpha = 0.9
+      seg(a, b)
+      for (const q of proj) {
+        const behind = t - q.p.x
+        if (behind >= 0 && behind < SCAN_TRAIL) {
+          ctx.globalAlpha = (1 - behind / SCAN_TRAIL) * 0.75
+          ctx.beginPath()
+          ctx.arc(q.sx, q.sy, q.sr + 2.5 + (behind / SCAN_TRAIL) * 4, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+      }
+      ctx.globalAlpha = 1
+    }
+
     // Callouts sit in the emptiest nearby slot; leaders run outward.
     const boxes = blocked
     const near = (x: number, y: number, r: number) => {
@@ -733,6 +768,7 @@ function StarFieldImpl({
     ringSet,
     pinnedId,
     tourId,
+    scanning,
     colorBy,
     topLangs,
     hiddenKeys,
@@ -749,6 +785,9 @@ function StarFieldImpl({
         busy = true
       }
       if (outcome && !reduce && performance.now() - outcome.at < OUTCOME_MS) {
+        busy = true
+      }
+      if (scanning && !reduce) {
         busy = true
       }
       if (ambient && !reduce && !drag.current && !hovering.current) {
@@ -770,7 +809,7 @@ function StarFieldImpl({
       raf.current = busy ? requestAnimationFrame(frame) : 0
     }
     frame()
-  }, [draw, reduce, ambient, outcome])
+  }, [draw, reduce, ambient, outcome, scanning])
 
   const kick = useCallback(() => {
     if (!raf.current) {

@@ -28,6 +28,7 @@ function Overview() {
   const { data, isLoading } = useDerived()
   const navigate = useNavigate()
   const open = useOpenRepo()
+  const { sync } = useSyncContext()
   const [shuffle, setShuffle] = useState(0)
   const [focusHealth, setFocusHealth] = useState<Health | null>(null)
 
@@ -131,7 +132,13 @@ function Overview() {
               to="/trending"
             />
           </div>
-          <StarField stars={data.stars} onOpen={open} height={540} focusHealth={focusHealth} />
+          <StarField
+            stars={data.stars}
+            onOpen={open}
+            height={540}
+            focusHealth={focusHealth}
+            scanning={sync.progress.running}
+          />
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t px-4 py-2.5 text-xs text-muted-foreground">
             <span>
               {focusHealth
