@@ -37,7 +37,7 @@ export function health(repo: Pick<Star, "isArchived" | "pushedAt">, now: Date): 
 
 /* ---------- Cruft (rules) ---------- */
 
-const DEPRECATION =
+export const DEPRECATION =
   /\b(deprecated|unmaintained|no longer (maintained|supported|developed)|not maintained|abandoned|archived|obsolete|superseded|moved to|has moved|use .{1,40} instead|end of life|eol)\b/i;
 
 export interface CruftResult {

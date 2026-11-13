@@ -1,6 +1,7 @@
 import type { BulkResult, Library, Repo, Star, StarList } from "@shared/schemas";
 import { cruftRules } from "@shared/scoring";
 import type { Backend } from "./api";
+import { createDemoOwn } from "./demo-own";
 
 /* A self-contained fake backend so anyone can try StarTune before deploying. */
 
@@ -184,6 +185,7 @@ export function createDemoBackend(): Backend {
   };
   const discovered = new Map<string, Repo>();
   const r = rng(7);
+  const own = createDemoOwn(() => state.stars);
 
   const bulk = (ids: string[], fn: (s: Star) => void): BulkResult => {
     const ok: string[] = [];
@@ -312,6 +314,9 @@ export function createDemoBackend(): Backend {
       for (const g of groups) for (const repo of g.repos) discovered.set(repo.id, repo);
       return { groups };
     },
+    mine: own.mine,
+    chartMine: own.chartMine,
+    audience: own.audience,
     tokenLogin: async () => {},
     logout: async () => {},
     exportBackup: async () => {

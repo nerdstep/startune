@@ -1,4 +1,4 @@
-import type { Library, Repo, Star, StarList, Unstarred } from "../shared/schemas";
+import type { Library, OwnRepo, Repo, Stargazer, Star, StarList, Unstarred, Upkeep } from "../shared/schemas";
 import { daysAgo, today } from "./env";
 
 const CHUNK = 80;
@@ -78,12 +78,7 @@ export async function saveStars(db: D1Database, userId: string, runId: string, e
   );
 }
 
-export async function saveLists(
-  db: D1Database,
-  userId: string,
-  runId: string,
-  lists: Array<StarList & { repoIds: string[] }>,
-) {
+export async function saveLists(db: D1Database, userId: string, runId: string, lists: Array<StarList & { repoIds: string[] }>) {
   const stmts: D1PreparedStatement[] = [];
   for (const l of lists) {
     stmts.push(
@@ -126,9 +121,7 @@ export async function listIdsForRepo(db: D1Database, userId: string, repoId: str
 
 export async function setRepoLists(db: D1Database, userId: string, repoId: string, listIds: string[]) {
   await db.batch([
-    db
-      .prepare(`DELETE FROM list_items WHERE repo_id = ?1 AND list_id IN (SELECT id FROM lists WHERE user_id = ?2)`)
-      .bind(repoId, userId),
+    db.prepare(`DELETE FROM list_items WHERE repo_id = ?1 AND list_id IN (SELECT id FROM lists WHERE user_id = ?2)`).bind(repoId, userId),
     ...listIds.map((l) => db.prepare(`INSERT OR IGNORE INTO list_items (list_id, repo_id) VALUES (?1, ?2)`).bind(l, repoId)),
   ]);
 }
@@ -170,7 +163,12 @@ interface StarRow {
   e_stars: number | null;
 }
 
-export function rowToRepo(r: Omit<StarRow, "starred_at" | "reviewed_at" | "snoozed_until" | "list_ids" | "s_list_id" | "s_conf" | "s_cruft" | "s_model" | "base7" | "base30" | "e_day" | "e_stars">): Repo {
+export function rowToRepo(
+  r: Omit<
+    StarRow,
+    "starred_at" | "reviewed_at" | "snoozed_until" | "list_ids" | "s_list_id" | "s_conf" | "s_cruft" | "s_model" | "base7" | "base30" | "e_day" | "e_stars"
+  >,
+): Repo {
   return {
     id: r.id,
     fullName: r.full_name,
@@ -234,10 +232,7 @@ export async function loadLibrary(db: D1Database, userId: string): Promise<Libra
     reviewedAt: r.reviewed_at,
     snoozedUntil: r.snoozed_until,
     listIds: safeJson<Array<string | null>>(r.list_ids, []).filter((x): x is string => !!x),
-    suggestion:
-      r.s_model != null
-        ? { listId: r.s_list_id, listConfidence: r.s_conf ?? 0, cruft: r.s_cruft ?? 0, model: r.s_model }
-        : null,
+    suggestion: r.s_model != null ? { listId: r.s_list_id, listConfidence: r.s_conf ?? 0, cruft: r.s_cruft ?? 0, model: r.s_model } : null,
     growth: { base7: r.base7, base30: r.base30, earliestDay: r.e_day, earliestStars: r.e_stars },
   }));
 
@@ -256,6 +251,69 @@ export async function loadLibrary(db: D1Database, userId: string): Promise<Libra
   }));
 
   return { stars, lists, recentlyUnstarred, lastSyncedAt: user?.last_synced_at ?? null, today: today() };
+}
+
+/* ---------- Your repos ---------- */
+
+export async function saveOwnRepos(db: D1Database, userId: string, rows: Array<{ repo: Repo; upkeep: Upkeep }>) {
+  const run = crypto.randomUUID();
+  await saveRepos(
+    db,
+    rows.map((r) => r.repo),
+  );
+  await batch(db, [
+    ...rows.map((r) =>
+      db
+        .prepare(
+          `INSERT INTO own_repos (user_id, repo_id, upkeep, sync_run) VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT(user_id, repo_id) DO UPDATE SET upkeep=excluded.upkeep, sync_run=excluded.sync_run`,
+        )
+        .bind(userId, r.repo.id, JSON.stringify(r.upkeep), run),
+    ),
+    // Repos deleted, renamed away, or made private since the last refresh
+    db.prepare(`DELETE FROM own_repos WHERE user_id = ?1 AND (sync_run IS NULL OR sync_run != ?2)`).bind(userId, run),
+    db.prepare(`UPDATE users SET own_synced_at = ?2 WHERE id = ?1`).bind(userId, new Date().toISOString()),
+  ]);
+}
+
+export async function saveChart(
+  db: D1Database,
+  userId: string,
+  repoId: string,
+  c: { history: Array<[number, number]>; exactSince: number | null; recent: Stargazer[] },
+) {
+  await db
+    .prepare(`UPDATE own_repos SET history = ?3, exact_since = ?4, recent = ?5, charted_at = ?6 WHERE user_id = ?1 AND repo_id = ?2`)
+    .bind(userId, repoId, JSON.stringify(c.history), c.exactSince, JSON.stringify(c.recent), new Date().toISOString())
+    .run();
+}
+
+type OwnRow = Parameters<typeof rowToRepo>[0] & {
+  upkeep: string;
+  history: string | null;
+  exact_since: number | null;
+  recent: string;
+  charted_at: string | null;
+};
+
+const EMPTY_UPKEEP: Upkeep = { openIssues: 0, openPrs: 0, waitingPrs: 0, oldestWaitingPrAt: null, unanswered: 0, oldestUnansweredAt: null, watchers: 0 };
+
+export async function loadOwnRepos(db: D1Database, userId: string, ids?: string[]): Promise<OwnRepo[]> {
+  const only = ids?.length ? ` AND o.repo_id IN (${ids.map((_, i) => `?${i + 2}`).join(",")})` : "";
+  const { results } = await db
+    .prepare(
+      `SELECT r.*, o.upkeep, o.history, o.exact_since, o.recent, o.charted_at FROM own_repos o JOIN repos r ON r.id = o.repo_id WHERE o.user_id = ?1${only} ORDER BY r.stars DESC`,
+    )
+    .bind(userId, ...(ids ?? []))
+    .all<OwnRow>();
+  return results.map((r) => ({
+    ...rowToRepo(r),
+    upkeep: { ...EMPTY_UPKEEP, ...safeJson<Partial<Upkeep>>(r.upkeep, {}) },
+    history: safeJson<Array<[number, number]> | null>(r.history, null),
+    exactSince: r.exact_since,
+    recent: safeJson<Stargazer[]>(r.recent, []),
+    chartedAt: r.charted_at,
+  }));
 }
 
 function safeJson<T>(s: string | null, fallback: T): T {

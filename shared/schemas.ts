@@ -112,6 +112,63 @@ export const BulkResultSchema = z.object({
 });
 export type BulkResult = z.infer<typeof BulkResultSchema>;
 
+/* ---------- Your repos ---------- */
+
+export const StargazerSchema = z.object({
+  login: z.string(),
+  name: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  followers: z.number(),
+  starredAt: z.string(),
+});
+export type Stargazer = z.infer<typeof StargazerSchema>;
+
+/** Maintenance facts read from GitHub alongside the repo. "Waiting" counts only other people's work. */
+export const UpkeepSchema = z.object({
+  openIssues: z.number(),
+  openPrs: z.number(),
+  /** Open, non-draft PRs opened by someone else (from the 10 oldest). */
+  waitingPrs: z.number(),
+  oldestWaitingPrAt: z.string().nullable(),
+  /** Issues opened by someone else with no comments yet (from the 10 newest). */
+  unanswered: z.number(),
+  oldestUnansweredAt: z.string().nullable(),
+  watchers: z.number(),
+});
+export type Upkeep = z.infer<typeof UpkeepSchema>;
+
+export const OwnRepoSchema = RepoSchema.extend({
+  upkeep: UpkeepSchema,
+  /** Current stargazers by when they starred: [unix ms, cumulative count], ascending. Null until charted. */
+  history: z.array(z.tuple([z.number(), z.number()])).nullable(),
+  /** History is exact from this time on (individual star dates); before it, points are sampled. */
+  exactSince: z.number().nullable(),
+  /** Most recent stargazers, newest first. */
+  recent: z.array(StargazerSchema),
+  chartedAt: z.string().nullable(),
+});
+export type OwnRepo = z.infer<typeof OwnRepoSchema>;
+
+export const MineSchema = z.object({
+  login: z.string(),
+  repos: z.array(OwnRepoSchema),
+  syncedAt: z.string().nullable(),
+});
+export type Mine = z.infer<typeof MineSchema>;
+
+export const ChartResultSchema = z.object({
+  repos: z.array(OwnRepoSchema),
+  failed: z.array(z.object({ repoId: z.string(), error: z.string() })),
+});
+export type ChartResult = z.infer<typeof ChartResultSchema>;
+
+export const AudienceSchema = z.object({
+  /** How many recent stargazers were sampled. */
+  sampled: z.number(),
+  alsoStarred: z.array(z.object({ repo: RepoSchema, by: z.number(), youStarred: z.boolean() })),
+});
+export type Audience = z.infer<typeof AudienceSchema>;
+
 /* ---------- Request bodies ---------- */
 
 const repoIds = z.array(z.string().min(1)).min(1).max(40);
@@ -155,3 +212,5 @@ export const ClassifyInput = z.object({
 export type ClassifyInput = z.infer<typeof ClassifyInput>;
 
 export const TokenLoginInput = z.object({ token: z.string().trim().min(20).max(255) });
+
+export const ChartInput = z.object({ repoIds: z.array(z.string().min(1)).min(1).max(3) });

@@ -1,12 +1,16 @@
 import { z } from "zod";
 import {
+  AudienceSchema,
   BulkResultSchema,
   ClassifyResultSchema,
   DiscoverSchema,
   LibrarySchema,
   ListSchema,
   MeSchema,
+  MineSchema,
+  ChartResultSchema,
   SyncStepSchema,
+  type Audience,
   type BulkResult,
   type ClassifyInput,
   type ClassifyResult,
@@ -14,6 +18,8 @@ import {
   type Discover,
   type Library,
   type Me,
+  type Mine,
+  type ChartResult,
   type ReviewInput,
   type StarList,
   type SyncStep,
@@ -44,6 +50,11 @@ export interface Backend {
   deleteList(id: string): Promise<void>;
   classify(input: ClassifyInput): Promise<ClassifyResult>;
   discover(): Promise<Discover>;
+  /** Your public repos; refresh forces a re-read from GitHub. */
+  mine(refresh?: boolean): Promise<Mine>;
+  /** Chart star history for up to 3 of your repos. */
+  chartMine(repoIds: string[]): Promise<ChartResult>;
+  audience(): Promise<Audience>;
   tokenLogin(token: string): Promise<void>;
   logout(): Promise<void>;
   exportBackup(): Promise<void>;
@@ -79,6 +90,9 @@ const remote: Backend = {
   deleteList: async (id) => void (await call(`/api/lists/${encodeURIComponent(id)}`, Ok, { method: "DELETE" })),
   classify: (input) => call("/api/ai/classify", ClassifyResultSchema, post(input)),
   discover: () => call("/api/discover", DiscoverSchema),
+  mine: (refresh) => call(`/api/mine${refresh ? "?refresh=1" : ""}`, MineSchema),
+  chartMine: (repoIds) => call("/api/mine/chart", ChartResultSchema, post({ repoIds })),
+  audience: () => call("/api/mine/audience", AudienceSchema),
   tokenLogin: async (token) => void (await call("/auth/token", Ok, post({ token }))),
   logout: async () => void (await call("/auth/logout", Ok, { method: "POST" })),
   exportBackup: async () => {

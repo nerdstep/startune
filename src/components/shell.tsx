@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   FlameIcon,
+  FolderGit2Icon,
   GaugeIcon,
   LayersIcon,
   LogOutIcon,
@@ -34,6 +35,7 @@ const NAV = [
   { to: "/map", label: "Star map", icon: OrbitIcon },
   { to: "/trending", label: "Trending", icon: FlameIcon },
   { to: "/lists", label: "Lists", icon: LayersIcon },
+  { to: "/mine", label: "Your repos", icon: FolderGit2Icon },
 ] as const;
 
 const MOBILE = ["/", "/stars", "/triage", "/trending", "/lists"];
@@ -88,6 +90,9 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem render={<Link to="/map" />}>
           <OrbitIcon /> Star map
+        </DropdownMenuLinkItem>
+        <DropdownMenuLinkItem render={<Link to="/mine" />}>
+          <FolderGit2Icon /> Your repos
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem render={<Link to="/settings" />}>
           <SettingsIcon /> Settings

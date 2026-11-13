@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { topTopics } from "../shared/scoring";
 import {
+  ChartInput,
   ClassifyInput,
   CreateListInput,
   RepoIdsInput,
@@ -8,14 +9,17 @@ import {
   SyncStepInput,
   UpdateListInput,
   UpdateListsInput,
+  type Audience,
   type BulkResult,
   type Discover,
+  type Mine,
+  type Repo,
   type Me,
   type SyncStep,
 } from "../shared/schemas";
 import { batchSize, classify } from "./ai";
 import { currentUser, requireUser } from "./auth";
-import { listIdsForRepo, loadLibrary, pruneStars, rowToRepo, saveLists, saveRepos, saveStars, setRepoLists } from "./db";
+import { listIdsForRepo, loadLibrary, loadOwnRepos, pruneStars, rowToRepo, saveChart, saveLists, saveOwnRepos, saveRepos, saveStars, setRepoLists } from "./db";
 import { clefModel, daysAgo, HttpError, oauthEnabled, today, type AppEnv } from "./env";
 import * as gh from "./github";
 import { parseBody } from "./validate";
@@ -84,9 +88,7 @@ api.post("/sync", async (c) => {
 api.post("/lists", async (c) => {
   const input = await parseBody(c, CreateListInput);
   const list = await gh.createList(c.var.user.token, input);
-  await c.env.DB.prepare(
-    `INSERT INTO lists (id, user_id, name, slug, description, is_private) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-  )
+  await c.env.DB.prepare(`INSERT INTO lists (id, user_id, name, slug, description, is_private) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`)
     .bind(list.id, c.var.user.id, list.name, list.slug, list.description, list.isPrivate ? 1 : 0)
     .run();
   return c.json(list);
@@ -124,9 +126,7 @@ async function ownList(db: D1Database, userId: string, listId: string) {
 api.post("/stars/lists", async (c) => {
   const { repoIds, add, remove } = await parseBody(c, UpdateListsInput);
   const { id: userId, token } = c.var.user;
-  const owned = new Set(
-    (await c.env.DB.prepare(`SELECT id FROM lists WHERE user_id = ?1`).bind(userId).all<{ id: string }>()).results.map((r) => r.id),
-  );
+  const owned = new Set((await c.env.DB.prepare(`SELECT id FROM lists WHERE user_id = ?1`).bind(userId).all<{ id: string }>()).results.map((r) => r.id));
   for (const l of [...add, ...remove]) if (!owned.has(l)) throw new HttpError(404, "List not found");
 
   const result: BulkResult = { ok: [], failed: [] };
@@ -172,9 +172,7 @@ api.post("/stars/unstar", async (c) => {
           )
           .bind(userId, repoId, star.full_name, star.starred_at, JSON.stringify(lists), new Date().toISOString()),
         db.prepare(`DELETE FROM stars WHERE user_id = ?1 AND repo_id = ?2`).bind(userId, repoId),
-        db
-          .prepare(`DELETE FROM list_items WHERE repo_id = ?1 AND list_id IN (SELECT id FROM lists WHERE user_id = ?2)`)
-          .bind(repoId, userId),
+        db.prepare(`DELETE FROM list_items WHERE repo_id = ?1 AND list_id IN (SELECT id FROM lists WHERE user_id = ?2)`).bind(repoId, userId),
       ]);
       result.ok.push(repoId);
     } catch (e) {
@@ -192,15 +190,15 @@ api.post("/stars/star", async (c) => {
   const db = c.env.DB;
   const result: BulkResult = { ok: [], failed: [] };
   const fresh = await gh.reposByIds(token, repoIds);
-  await saveRepos(db, fresh.filter((r): r is NonNullable<typeof r> => !!r));
+  await saveRepos(
+    db,
+    fresh.filter((r): r is NonNullable<typeof r> => !!r),
+  );
   for (const [i, repoId] of repoIds.entries()) {
     try {
       if (!fresh[i]) throw new Error("Repository no longer exists");
       await gh.addStar(token, repoId);
-      const log = await db
-        .prepare(`SELECT list_ids FROM unstar_log WHERE user_id = ?1 AND repo_id = ?2`)
-        .bind(userId, repoId)
-        .first<{ list_ids: string }>();
+      const log = await db.prepare(`SELECT list_ids FROM unstar_log WHERE user_id = ?1 AND repo_id = ?2`).bind(userId, repoId).first<{ list_ids: string }>();
       const lists = log ? (JSON.parse(log.list_ids) as string[]) : [];
       const stillExist = lists.length
         ? (await db.prepare(`SELECT id FROM lists WHERE user_id = ?1`).bind(userId).all<{ id: string }>()).results
@@ -212,9 +210,7 @@ api.post("/stars/star", async (c) => {
         await setRepoLists(db, userId, repoId, stillExist);
       }
       await db.batch([
-        db
-          .prepare(`INSERT OR REPLACE INTO stars (user_id, repo_id, starred_at) VALUES (?1, ?2, ?3)`)
-          .bind(userId, repoId, new Date().toISOString()),
+        db.prepare(`INSERT OR REPLACE INTO stars (user_id, repo_id, starred_at) VALUES (?1, ?2, ?3)`).bind(userId, repoId, new Date().toISOString()),
         db.prepare(`DELETE FROM unstar_log WHERE user_id = ?1 AND repo_id = ?2`).bind(userId, repoId),
       ]);
       result.ok.push(repoId);
@@ -234,7 +230,9 @@ api.post("/stars/review", async (c) => {
   const now = new Date();
   const stmts = repoIds.map((id) => {
     if (action === "keep")
-      return db.prepare(`UPDATE stars SET reviewed_at = ?3, snoozed_until = NULL WHERE user_id = ?1 AND repo_id = ?2`).bind(c.var.user.id, id, now.toISOString());
+      return db
+        .prepare(`UPDATE stars SET reviewed_at = ?3, snoozed_until = NULL WHERE user_id = ?1 AND repo_id = ?2`)
+        .bind(c.var.user.id, id, now.toISOString());
     if (action === "snooze")
       return db
         .prepare(`UPDATE stars SET snoozed_until = ?3 WHERE user_id = ?1 AND repo_id = ?2`)
@@ -311,9 +309,7 @@ api.get("/discover", async (c) => {
   const hit = await cache.match(key);
   if (hit) return new Response(hit.body, hit);
 
-  const { results } = await c.env.DB.prepare(
-    `SELECT r.topics, s.starred_at, r.id FROM stars s JOIN repos r ON r.id = s.repo_id WHERE s.user_id = ?1`,
-  )
+  const { results } = await c.env.DB.prepare(`SELECT r.topics, s.starred_at, r.id FROM stars s JOIN repos r ON r.id = s.repo_id WHERE s.user_id = ?1`)
     .bind(userId)
     .all<{ topics: string; starred_at: string; id: string }>();
   const starred = new Set(results.map((r) => r.id));
@@ -330,10 +326,93 @@ api.get("/discover", async (c) => {
       )
     : [];
   const body: Discover = {
-    groups: found
-      .map((g) => ({ topic: g.key, repos: g.repos.filter((r) => !starred.has(r.id)) }))
-      .filter((g) => g.repos.length > 0),
+    groups: found.map((g) => ({ topic: g.key, repos: g.repos.filter((r) => !starred.has(r.id)) })).filter((g) => g.repos.length > 0),
   };
+  const res = c.json(body);
+  res.headers.set("Cache-Control", "private, max-age=21600");
+  c.executionCtx.waitUntil(cache.put(key, res.clone()));
+  return res;
+});
+
+/* ---------- Your repos ---------- */
+
+const OWN_FRESH_MS = 6 * 3600_000;
+
+/** Your public repos. Re-read from GitHub when older than 6 hours, or on ?refresh=1. */
+api.get("/mine", async (c) => {
+  const { id: userId, login, token } = c.var.user;
+  const row = await c.env.DB.prepare(`SELECT own_synced_at FROM users WHERE id = ?1`).bind(userId).first<{ own_synced_at: string | null }>();
+  let syncedAt = row?.own_synced_at ?? null;
+  const stale = !syncedAt || Date.now() - new Date(syncedAt).getTime() > OWN_FRESH_MS;
+  if (stale || c.req.query("refresh") === "1") {
+    await saveOwnRepos(c.env.DB, userId, await gh.ownRepos(token, login));
+    syncedAt = new Date().toISOString();
+  }
+  const body: Mine = { login, repos: await loadOwnRepos(c.env.DB, userId), syncedAt };
+  return c.json(body);
+});
+
+/** Chart star history for up to 3 of your repos (about 11 GitHub calls each at most). */
+api.post("/mine/chart", async (c) => {
+  const { repoIds } = await parseBody(c, ChartInput);
+  const { id: userId, token } = c.var.user;
+  const repos = await loadOwnRepos(c.env.DB, userId, repoIds);
+  const failed: Array<{ repoId: string; error: string }> = [];
+  const WEEK = 7 * 86_400_000;
+  for (const r of repos) {
+    try {
+      const recent = r.history && r.chartedAt && Date.now() - new Date(r.chartedAt).getTime() < WEEK;
+      // One repo at a time keeps the request inside the Worker's subrequest budget.
+      // oxlint-disable-next-line no-await-in-loop
+      const chart = await gh.chartRepo(token, r.fullName, r.id, recent ? { history: r.history!, exactSince: r.exactSince } : null);
+      if (chart) {
+        // oxlint-disable-next-line no-await-in-loop
+        await saveChart(c.env.DB, userId, r.id, chart);
+      } else {
+        failed.push({ repoId: r.id, error: "GitHub didn't return this repo" });
+      }
+    } catch (e) {
+      failed.push({ repoId: r.id, error: e instanceof Error ? e.message : "Charting failed" });
+    }
+  }
+  for (const id of repoIds) if (!repos.some((r) => r.id === id)) failed.push({ repoId: id, error: "Not one of your repos" });
+  return c.json({ repos: await loadOwnRepos(c.env.DB, userId, repoIds), failed });
+});
+
+/** What your recent stargazers also starred, sampled from up to 40 of them. Cached for the day. */
+api.get("/mine/audience", async (c) => {
+  const { id: userId, login, token } = c.var.user;
+  const cache = (caches as unknown as { default: Cache }).default;
+  const key = new Request(`https://startune.cache/audience/${userId}/${today()}`);
+  const hit = await cache.match(key);
+  if (hit) return new Response(hit.body, hit);
+
+  const own = await loadOwnRepos(c.env.DB, userId);
+  const ownIds = new Set(own.map((r) => r.id));
+  const seen = new Set<string>([login.toLowerCase()]);
+  const people = own
+    .flatMap((r) => r.recent)
+    .sort((a, b) => b.starredAt.localeCompare(a.starredAt))
+    .filter((g) => !seen.has(g.login.toLowerCase()) && !!seen.add(g.login.toLowerCase()))
+    .slice(0, 40)
+    .map((g) => g.login);
+  const lists = await gh.alsoStarred(token, people);
+  const tally = new Map<string, { repo: Repo; by: number }>();
+  for (const list of lists)
+    for (const r of list) {
+      if (ownIds.has(r.id)) continue;
+      const t = tally.get(r.id);
+      if (t) t.by++;
+      else tally.set(r.id, { repo: r, by: 1 });
+    }
+  const top = [...tally.values()].sort((a, b) => b.by - a.by || b.repo.stars - a.repo.stars).slice(0, 12);
+  const mine = top.length
+    ? await c.env.DB.prepare(`SELECT repo_id FROM stars WHERE user_id = ?1 AND repo_id IN (${top.map((_, i) => `?${i + 2}`).join(",")})`)
+        .bind(userId, ...top.map((t) => t.repo.id))
+        .all<{ repo_id: string }>()
+    : { results: [] };
+  const starred = new Set(mine.results.map((r) => r.repo_id));
+  const body: Audience = { sampled: people.length, alsoStarred: top.map((t) => ({ ...t, youStarred: starred.has(t.repo.id) })) };
   const res = c.json(body);
   res.headers.set("Cache-Control", "private, max-age=21600");
   c.executionCtx.waitUntil(cache.put(key, res.clone()));
