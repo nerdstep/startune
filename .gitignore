@@ -5,7 +5,6 @@ dist
 .impeccable
 .dev.vars
 *.tsbuildinfo
-src/routeTree.gen.ts
 
 # Python (brand/make_logo.py)
 .venv/
