@@ -8,6 +8,7 @@ import {
   health,
   listIdeas,
   rediscoverScore,
+  starCruft,
   topTopics,
 } from '../shared/scoring'
 
@@ -142,5 +143,19 @@ describe('rediscover / ideas / topics', () => {
       1,
     )
     expect(t).toEqual(['new'])
+  })
+})
+
+describe('starCruft', () => {
+  const quiet = { isFork: true, stars: 3, pushedAt: yearsAgo(6) }
+
+  it('never counts your own repos as cruft, however quiet', () => {
+    const own = star({ ...quiet, owner: 'NerdStep' })
+    expect(starCruft(own, 'nerdstep', now)).toEqual({ rules: { score: 0, reasons: [] }, cruft: 0 })
+  })
+
+  it("scores everyone else's repos by the rules", () => {
+    const theirs = star({ ...quiet, owner: 'someone' })
+    expect(starCruft(theirs, 'nerdstep', now).cruft).toBeGreaterThanOrEqual(0.5)
   })
 })

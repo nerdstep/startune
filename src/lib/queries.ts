@@ -8,8 +8,7 @@ import type {
 } from '@shared/schemas'
 import {
   CRUFT_THRESHOLD,
-  cruftRules,
-  cruftScore,
+  starCruft,
   growth,
   health,
   momentum,
@@ -91,8 +90,7 @@ export function derive(lib: Library): Derived {
     for (const l of s.listIds) {
       listCounts.set(l, (listCounts.get(l) ?? 0) + 1)
     }
-    const rules = cruftRules(s, now)
-    const cruft = cruftScore(rules.score, s.suggestion?.cruft)
+    const { rules, cruft } = starCruft(s, lib.login, now)
     const g = growth(s.stars, s.growth, lib.today)
     if (g.d7 != null) {
       hasHistory = true

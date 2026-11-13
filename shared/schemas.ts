@@ -75,6 +75,8 @@ export const LibrarySchema = z.object({
   recentlyUnstarred: z.array(UnstarredSchema),
   lastSyncedAt: z.string().nullable(),
   today: z.string(),
+  /** The signed-in user's GitHub login, to tell their own repos from the rest. */
+  login: z.string(),
 })
 export type Library = z.infer<typeof LibrarySchema>
 

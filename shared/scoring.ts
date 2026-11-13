@@ -112,6 +112,22 @@ export function cruftScore(rules: number, ai: number | null | undefined): number
 
 export const CRUFT_THRESHOLD = 0.5
 
+/**
+ * A star's cruft: rules blended with Clef's view. Your own repos are never cruft: starring them
+ * isn't a judgement to revisit, however quiet they are.
+ */
+export function starCruft(
+  star: Parameters<typeof cruftRules>[0] & Pick<Star, 'owner' | 'suggestion'>,
+  login: string,
+  now: Date,
+): { rules: CruftResult; cruft: number } {
+  if (star.owner.toLowerCase() === login.toLowerCase()) {
+    return { rules: { score: 0, reasons: [] }, cruft: 0 }
+  }
+  const rules = cruftRules(star, now)
+  return { rules, cruft: cruftScore(rules.score, star.suggestion?.cruft) }
+}
+
 /* ---------- Growth / trending ---------- */
 
 export interface Growth {

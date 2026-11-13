@@ -304,9 +304,9 @@ export async function loadLibrary(db: D1Database, userId: string): Promise<Libra
       .bind(userId)
       .all<{ repo_id: string; full_name: string; unstarred_at: string }>(),
     db
-      .prepare(`SELECT last_synced_at FROM users WHERE id = ?1`)
+      .prepare(`SELECT login, last_synced_at FROM users WHERE id = ?1`)
       .bind(userId)
-      .first<{ last_synced_at: string | null }>(),
+      .first<{ login: string; last_synced_at: string | null }>(),
   ])
 
   const stars: Star[] = starsRes.results.map((r) => ({
@@ -347,6 +347,7 @@ export async function loadLibrary(db: D1Database, userId: string): Promise<Libra
     recentlyUnstarred,
     lastSyncedAt: user?.last_synced_at ?? null,
     today: today(),
+    login: user?.login ?? '',
   }
 }
 

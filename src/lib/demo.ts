@@ -396,6 +396,7 @@ export function sampleLibrary(): Library {
     recentlyUnstarred: [],
     lastSyncedAt: new Date().toISOString(),
     today: new Date().toISOString().slice(0, 10),
+    login: 'demo',
   }
 }
 
@@ -407,6 +408,7 @@ export function createDemoBackend(): Backend {
     recentlyUnstarred: [],
     lastSyncedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
     today: new Date().toISOString().slice(0, 10),
+    login: 'demo',
   }
   const graveyard = new Map<string, Star>()
   /** In a first-run demo, the library the fake sync reveals (null once revealed, or never). */

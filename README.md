@@ -31,7 +31,7 @@ Every repo gets a health class from the last commit on its default branch, named
 
 ### How cruft is scored
 
-Rules (archived; description says deprecated or moved; years since the last push; fork; small and inactive) give a probability, which is discounted when the repo still ships releases. When Clef has looked at a repo, its yes/no probability is blended in (55%). You can see the reasons on every card.
+Rules (archived; description says deprecated or moved; years since the last push; fork; small and inactive) give a probability, which is discounted when the repo still ships releases. When Clef has looked at a repo, its yes/no probability is blended in (55%). You can see the reasons on every card. Repos you own are never counted as cruft.
 
 ### How star history is charted
 
