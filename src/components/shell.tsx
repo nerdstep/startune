@@ -42,25 +42,80 @@ const NAV = [
 
 const MOBILE = ['/', '/stars', '/triage', '/trending', '/lists']
 
-export function Logo({ className }: { className?: string }) {
+/**
+ * The scanned star: a regular five-point star inside scanner corners. Drawn on a 24-unit grid so
+ * the 2-unit frame lands on whole pixels at 24px, with the star's box centred in the frame
+ * (gaps 3.7 across, 4.0 down; a regular star is a touch wider than tall). Keep public/favicon.svg
+ * in step.
+ */
+const MARK_STAR =
+  'M12 6.48 13.61 10.36 17.8 10.7 14.61 13.43 15.59 17.52 12 15.33 8.41 17.52 9.39 13.43 6.2 10.7 10.39 10.36Z'
+/** Each corner, and the direction it closes in by when the mark locks on (hover or focus). */
+const MARK_CORNERS = [
+  { d: 'M1 6.5V1h5.5', lock: 'group-hover/logo:translate-x-px group-hover/logo:translate-y-px' },
+  { d: 'M17.5 1H23v5.5', lock: 'group-hover/logo:-translate-x-px group-hover/logo:translate-y-px' },
+  {
+    d: 'M23 17.5V23h-5.5',
+    lock: 'group-hover/logo:-translate-x-px group-hover/logo:-translate-y-px',
+  },
+  { d: 'M6.5 23H1v-5.5', lock: 'group-hover/logo:translate-x-px group-hover/logo:-translate-y-px' },
+]
+
+function LogoMark() {
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <svg viewBox="0 0 32 32" aria-hidden className="size-6">
-        <path
-          d="M16 3l3.4 8.2 8.6.7-6.6 5.6 2 8.5L16 21.4 8.6 26l2-8.5L4 11.9l8.6-.7z"
-          fill="var(--primary)"
-        />
-        <path
-          d="M10 16.5c2-1.7 4 1.7 6 0s4 1.7 6 0"
-          fill="none"
-          stroke="var(--background)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="text-[15px] font-semibold tracking-tight">StarTune</span>
-    </div>
+    <svg viewBox="0 0 24 24" aria-hidden className="size-6 shrink-0 overflow-visible">
+      <path
+        d={MARK_STAR}
+        className="fill-primary stroke-primary"
+        strokeWidth={1}
+        strokeLinejoin="round"
+      />
+      {/* Duo-tone on hover or keyboard focus: the frame turns Starlight and closes in by 1px. */}
+      <g
+        fill="none"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="stroke-primary transition-[stroke] duration-150 ease-out group-hover/logo:stroke-foreground group-focus-visible/logo:stroke-foreground"
+      >
+        {MARK_CORNERS.map((c) => (
+          <path
+            key={c.d}
+            d={c.d}
+            className={cn(
+              'transition-transform duration-150 ease-out',
+              c.lock,
+              c.lock.replaceAll('group-hover/', 'group-focus-visible/'),
+            )}
+          />
+        ))}
+      </g>
+    </svg>
   )
+}
+
+/** The mark and wordmark. With `home`, it links to Overview and answers hover and focus. */
+export function Logo({ className, home }: { className?: string; home?: boolean }) {
+  const content = (
+    <>
+      <LogoMark />
+      <span className="text-[15px] font-semibold tracking-tight">StarTune</span>
+    </>
+  )
+  if (home) {
+    return (
+      <div className={cn('flex items-center', className)}>
+        <Link
+          to="/"
+          aria-label="StarTune, go to Overview"
+          className="group/logo -m-1 flex items-center gap-2 rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {content}
+        </Link>
+      </div>
+    )
+  }
+  return <div className={cn('flex items-center gap-2', className)}>{content}</div>
 }
 
 export function SyncBar({ progress }: { progress: P }) {
@@ -159,7 +214,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <SyncBar progress={sync.progress} />
       {/* Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r bg-background px-3 pb-3 md:flex">
-        <Logo className="h-14 px-2.5" />
+        <Logo home className="h-14 px-2.5" />
         <nav className="mt-2 flex flex-col gap-0.5" aria-label="Main">
           {NAV.map((n) => (
             <Link
@@ -190,7 +245,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Top bar */}
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur-sm md:px-8">
-        <Logo className="md:hidden" />
+        <Logo home className="md:hidden" />
         <div className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
           <span
             className={cn('size-1.5 rounded-full', backend.demo ? 'bg-warning' : 'bg-primary')}

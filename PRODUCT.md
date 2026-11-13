@@ -36,7 +36,7 @@ Runs entirely on the owner's own Cloudflare account (one Worker, D1, Workers AI,
 
 ## Brand Commitments
 
-- Name **StarTune**, tagline "Tune your stars." Logo mark: a five-point star outline with a wave through it (star + tuning).
+- Name **StarTune**, tagline "Bring your stars into focus." Logo mark: the scanned star, a solid five-point star inside scanner corners (a star caught in the instrument).
 - The user wants the design to be unique, modern, interactive-feeling and to play to the star theme, while avoiding: gimmicky or slow interaction, another near-black/samey dark dashboard, and theme that makes data hard to read. (Earlier neon/glass styling was rejected as generic.)
 
 ## Evidence on Hand

@@ -1,8 +1,17 @@
-# ✦ StarTune
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/startune-logo.svg" />
+    <img alt="StarTune" src="brand/startune-logo-light.svg" width="300" />
+  </picture>
+</h1>
 
-**Tune your GitHub stars.** Sort them into GitHub Lists, clear out the dead ones, see what's taking off, and find the gems you forgot about.
+**Bring your GitHub stars into focus.** Sort them into GitHub Lists, clear out the dead ones, see what's taking off, and find the gems you forgot about.
 
 StarTune runs entirely on **your own Cloudflare account**: a single Worker with D1 for storage, Workers AI ([Clef](https://blog.cloudflare.com/clef-decision-models/)) for suggestions, and a daily cron for trending data.
+
+![StarTune's Overview: every star as a point in a 3D field, by year starred, popularity and how recently it was pushed, coloured by health class, beside readouts and a health-by-class panel](docs/overview.png)
+
+*The Overview, shown with the built-in demo data.*
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nerdstep/startune)
 
@@ -11,20 +20,32 @@ StarTune runs entirely on **your own Cloudflare account**: a single Worker with 
 ## What it does
 
 | | |
-|---|---|
-| **Overview** | Starring history by year, colored by how alive each repo is today; health mix; forgotten gems; what's hot. |
+| --- | --- |
+| **Overview** | Your stars as a 3D field you can turn by hand: when you starred each repo, how popular it is, and how recently it was pushed, colored by health class. Readouts for stars, Lists coverage, likely cruft, and growth this week; health by class; what's brightening; forgotten gems. |
 | **Stars** | Fast, virtualized library with search, list, language, health, and year filters. Shift-click range selection; bulk add to lists, keep, or unstar. |
 | **Triage** | A swipeable, keyboard-driven card deck (`←` unstar · `→` keep · `A` accept Clef's list · `S` snooze · `J` skip). Three queues: **Cruft**, **Unlisted**, and **Rediscover**. |
-| **Star map** | Every star you've given, plotted by when you starred it and how popular it is. Zoom, pan, filter by health or language, and click a dot to open it. |
-| **Trending** | Your stars ranked by 7- or 30-day growth (from daily snapshots), fresh releases, and **Discover**: new repos in your most-starred topics. |
+| **Star map** | The full-page field. Drag or use the arrow keys to orbit, `[` and `]` to step through stars, color by health or language, and hide a class or language from the legend. A flat 2D view with zoom and pan is one toggle away. Click or press Enter to open a repo. |
+| **Trending** | Your stars ranked by 7- or 30-day growth (from daily snapshots), with a momentum plot whose pace trails show what's speeding up or slowing down. Plus fresh releases, and **Discover**: new repos in your most-starred topics. |
 | **Lists** | Create, edit, and delete GitHub Lists. **List ideas** come from topics shared by unlisted repos. **Sort with Clef** classifies unlisted repos and lets you apply its confident picks in bulk. |
+| **Your repos** | The public repos you own (forks behind a toggle): star history for each, 7- and 30-day growth, and weekly bars. What's waiting on you (PRs from others, issues without a reply) and what's worth a look (dormant repos still gaining stars, unreleased work, archive candidates, a missing description, license, or topics). Your latest and most-followed stargazers, and what they also star. |
 | **Safety** | Every unstar can be undone (from the toast or Settings), and the repo's lists come back too. JSON export is available. |
 
+### How health is classed
+
+Every repo gets a health class from its last push, named after star classes: **O/B** thriving (pushed in the last 3 months), **A/F** active (the last year), **G** quiet (1 to 3 years), **K** dormant (3+ years), and **M** archived. The class shows as a color and a letter wherever the repo appears.
+
 ### How cruft is scored
+
 Rules (archived; description says deprecated or moved; years since the last push; fork; small and inactive) give a probability, which is discounted when the repo still ships releases. When Clef has looked at a repo, its yes/no probability is blended in (55%). You can see the reasons on every card.
 
+### How star history is charted
+
+GitHub doesn't keep a repo's star count over time, so Your repos rebuilds it from the stargazer list. The newest 100 stars are exact. For older ones, StarTune reads every page when a repo has up to about 1,000 stars and samples 9 pages across the rest for bigger ones; sampled stretches are marked `≈`. GitHub only serves a repo's first 40,000 stargazers, so for bigger repos the stretch between those and the newest 100 is drawn as a straight line. Your repo list refreshes when you open the page and it's more than 6 hours old, and a chart less than a week old is extended with just the new stars.
+
 ### How Clef is used
+
 Each Workers AI request asks Clef up to 64 typed questions. For each of ~32 repos it asks two:
+
 - a `choice` question: which of your lists fits (or `none`);
 - a `noul` (yes/no) question: is this repo likely cruft?
 
@@ -33,6 +54,7 @@ Output tokens aren't billed, so classifying a thousand stars costs very little a
 ## Deploy
 
 ### One click
+
 1. Create a **GitHub OAuth app** at [github.com/settings/developers](https://github.com/settings/developers).
    - Homepage URL: `https://startune.<your-subdomain>.workers.dev`
    - Callback URL: `https://startune.<your-subdomain>.workers.dev/auth/callback`
@@ -42,6 +64,7 @@ Output tokens aren't billed, so classifying a thousand stars costs very little a
 3. Open the Worker URL and sign in. **The first person to sign in owns the install.** To let other people in, set `ALLOWED_USERS=alice,bob`.
 
 ### Manually
+
 ```bash
 npm install
 npx wrangler login
@@ -52,6 +75,7 @@ npm run deploy   # build → deploy (auto-provisions D1) → apply migrations
 ```
 
 ### Signing in with a token
+
 If you sign in with a classic personal access token, it needs the `read:user` and `public_repo` scopes. `public_repo` is what GitHub requires for starring and unstarring.
 
 > **About the Lists scope:** GitHub doesn't document which OAuth scope its `UserList` mutations need. If creating a list or adding a repo to one fails, StarTune shows GitHub's "missing permission" message, which names the scope it wants. Add that scope to `GITHUB_SCOPES` (for an OAuth app) or to your token, then sign in again.
@@ -59,14 +83,14 @@ If you sign in with a classic personal access token, it needs the `read:user` an
 ## Configuration
 
 | Name | Kind | Default | |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | — | OAuth app credentials, or `none` |
 | `SESSION_SECRET` | secret | — | Encrypts GitHub tokens at rest (AES-GCM, HKDF). Changing it signs everyone out. |
 | `ALLOWED_USERS` | var | *(empty)* | Comma-separated logins. Empty means the first sign-in claims the install. |
 | `CLEF_MODEL` | var | `clef-flash` | `clef-flash` or `clef` |
 | `GITHUB_SCOPES` | var | `read:user public_repo` | OAuth scopes requested at sign-in |
 
-The cron (`17 9 * * *` UTC) refreshes repo metadata and records a star-count snapshot for up to 3,000 repos per run, oldest-fetched first. That keeps it under the Workers free-plan subrequest limit. Trending starts working once there are a few days of snapshots; until then, it falls back to stars per day since each repo was created.
+The cron (`17 9 * * *` UTC) refreshes repo metadata and records a star-count snapshot for up to 3,000 repos per run, your stars and your own repos together, oldest-fetched first. That keeps it under the Workers free-plan subrequest limit. Trending starts working once there are a few days of snapshots; until then, it falls back to stars per day since each repo was created.
 
 ## Local development
 
@@ -85,22 +109,24 @@ Formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter) and linting is 
 
 ## Architecture
 
-```
+```bash
 worker/        Hono API on Workers
   auth.ts      GitHub OAuth + PAT sign-in, sessions (hashed ids), encrypted tokens
-  github.ts    GraphQL: stars, lists (UserList), mutations, topic search
-  api.ts       /api/*: library, client-driven sync, lists, unstar/restar, review, Clef, discover, export
+  github.ts    GraphQL + REST: stars, lists (UserList), mutations, topic search, your repos, star history
+  api.ts       /api/*: library, client-driven sync, lists, unstar/restar, review, Clef, discover, export, your repos (/mine)
   ai.ts        Clef request builder/parser (64-question batches)
   cron.ts      daily metadata refresh + snapshots + cleanup
   db.ts        D1 queries
-shared/        zod schemas + pure scoring (health, cruft, growth, rediscover, list ideas)
+shared/        zod schemas + pure scoring (health, cruft, growth, rediscover, list ideas, your-repo signals)
 src/           React 19 + TanStack Router/Query/Virtual + shadcn/ui on Base UI + Tailwind v4
 migrations/    D1 schema
+brand/         logo files and the script that generates them
+docs/          README screenshot
 ```
 
 Sync is driven by the client: the browser calls `/api/sync` page by page, 400 stars per request. That way even a library of 10k stars never runs into Worker CPU or subrequest limits, and you get a live progress bar. A star that GitHub no longer reports is removed at the end of a full sync.
 
-Chart colors come from a palette validated for color-vision deficiency on the dark surface (see `src/lib/palette.ts`). Colors are never the only signal: every chart has a legend, labels, and hover tooltips, and the star map also uses hollow and faded marks.
+Chart colors come from a palette validated for color-vision deficiency on the dark surface (see `src/lib/palette.ts`). Colors are never the only signal: every chart has a legend, labels, and hover tooltips, health colors always come with a class letter, and the star map also uses hollow and faded marks.
 
 ## License
 

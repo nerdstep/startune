@@ -1,6 +1,6 @@
 ---
 name: StarTune
-description: Tune your stars. A GitHub star library read as a scanned star field.
+description: Bring your stars into focus. A GitHub star library read as a scanned star field.
 colors:
   acid-lime: "#c8ff3a"
   black-field: "#050607"
@@ -229,7 +229,7 @@ Every class holds at least 6.6:1 against the black field, and all class pairs st
 
 ### Hierarchy
 
-- **Display** (600, 2.25rem to 3rem, tracking -0.025em): The sign-in promise ("Tune your stars."). Only on the entry screen.
+- **Display** (600, 2.25rem to 3rem, tracking -0.025em): The sign-in promise ("Bring your stars into focus."). Only on the entry screen.
 - **Headline** (600, 1.5rem, 2rem, tracking -0.025em): Page titles in the page header and the first-run title.
 - **Stage name** (600, 1.875rem, tracking -0.025em): The repo under review on the triage card, the one object a decision is about. Only there.
 - **Readout** (600, 1.25rem, 1.75rem, tabular): Numbers in a panel's readout strip; may take the warning colour for a cruft count.
@@ -276,12 +276,11 @@ Shadows appear only on floating layers, always pure black, always soft, never co
 
 Corners are small and crisp: 2px on tab triggers, checkboxes and kbd hints; 4px on buttons, inputs, nav items, menu items and tooltips; 6px on panels, cards, popovers and menus; 10px only on dialogs. Badges, status dots, avatars in the account trigger and health swatches are full circles. Inside the canvas, callout boxes are square-cornered rectangles joined to their point by a straight leader line and a ring 4px outside the mark, which keeps the field reading as scan software rather than UI chrome.
 
-Proportion is drawn with lines, not bars: class shares are a 1px coloured line over a 1px grid track, progress is 2px (1px for the global sync bar). The five-point star is the recurring glyph: the logo (star with a wave through it), the outline star on first run, and the small star beside each callout's stat line.
+Proportion is drawn with lines, not bars: class shares are a 1px coloured line over a 1px grid track, progress is 2px (1px for the global sync bar). The five-point star is the recurring glyph: the logo, the outline star on first run, and the small star beside each callout's stat line. The logo is the scanned star: a solid lime regular star (inner radius 45% of outer, joins rounded) centred inside four lime scanner corners, drawn on a 24-unit grid so the 2-unit frame lands on whole pixels at its 24px size and the star clears the frame evenly on every side. Where it links home (the rail and the mobile top bar) it is duo-tone on hover and keyboard focus: the corners turn Starlight and close in by 1px over 150ms while the star stays lime, a scanner locking on. The favicon is the same mark on a Black Field tile.
 
 ## Components
 
 ### Buttons
-
 
 Every clickable control (buttons, tabs, menu items, checkboxes, switches, role="button") shows the pointer cursor; disabled controls keep the default arrow. Tailwind v4 dropped the pointer on buttons, so a base-layer rule in `src/styles.css` restores it.
 Thin, outlined, quiet until touched.

@@ -76,7 +76,9 @@ export function Login() {
           </div>
         )}
         <div className="my-auto max-w-md py-8">
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Tune your stars.</h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
+            Bring your stars into focus.
+          </h1>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
             Sort your GitHub stars into Lists, clear out the dead ones, see what's taking off, and
             find the gems you forgot about.
