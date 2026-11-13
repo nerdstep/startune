@@ -11,7 +11,7 @@
     "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "typecheck": "tsc -b",
-    "test": "vitest run",
+    "test": "node scripts/vitest.mjs run",
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts",
     "seed:local": "node scripts/seed-local.mjs > .wrangler/seed.sql && wrangler d1 execute DB --local --file .wrangler/seed.sql"
   },
