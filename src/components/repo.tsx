@@ -8,7 +8,7 @@ import {
   StarOffIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
-import { createContext, useContext, useState } from 'react'
+import { createContext, memo, useContext, useState, useSyncExternalStore } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -214,7 +214,20 @@ export function SuggestionChip({
 export const ROW_COLS =
   'md:grid-cols-[1.25rem_2.75rem_minmax(0,1fr)_4.25rem_4.5rem_4.5rem_minmax(0,8.5rem)]'
 
-export function RepoRow({
+/**
+ * True where a row's toolbar is hidden until hover: a hover-capable pointer at md and up. There the
+ * toolbar (list picker + menu, about half a row's mount cost) mounts only once the row is touched.
+ */
+const HOVER_TOOLBAR = '(hover: hover) and (width >= 48rem)'
+const subscribeHoverToolbar = (cb: () => void) => {
+  const m = window.matchMedia(HOVER_TOOLBAR)
+  m.addEventListener('change', cb)
+  return () => m.removeEventListener('change', cb)
+}
+const useHoverToolbar = () =>
+  useSyncExternalStore(subscribeHoverToolbar, () => window.matchMedia(HOVER_TOOLBAR).matches)
+
+function RepoRowImpl({
   s,
   selected,
   onSelect,
@@ -248,22 +261,37 @@ export function RepoRow({
     />
   )
   const d7 = s.g.d7 ?? 0
-  // The whole row opens the repo through the name button: its ::after stretches over the row, so
-  // mouse and keyboard share one real control. Other controls and tooltips sit above it (z-1).
+  // The toolbar is invisible until hover on desktop, so it mounts on the first real pointer move or
+  // focus (pointermove, not pointerenter: rows sliding under a still cursor during a fling don't
+  // count). Touch and narrow screens always show it, so there it mounts with the row.
+  const hoverToolbar = useHoverToolbar()
+  const [armed, setArmed] = useState(false)
+  const arm = armed ? undefined : () => setArmed(true)
+  const showToolbar = armed || !hoverToolbar
+  // The row has two zones. The left strip, full height, selects: the checkbox's ::after fills it.
+  // Everything else opens the repo through the name button, whose ::after stretches over the row,
+  // so mouse and keyboard share one real control. Other controls and tooltips sit above it (z-1).
+  // While a toolbar popup is open (data-popup-open), the row stays lit and the toolbar stays shown.
   return (
     <div
       onMouseEnter={() => onHover?.(s.id)}
       onMouseLeave={() => onHover?.(null)}
+      onPointerMove={arm}
+      onFocus={arm}
       className={cn(
-        'group relative grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-2.5 transition-colors duration-100 hover:bg-accent/40',
+        'group relative grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-2.5 transition-colors duration-100 hover:bg-accent/40 has-data-popup-open:bg-accent/40',
         ROW_COLS,
-        selected && 'bg-secondary/70 hover:bg-secondary',
+        selected && 'bg-secondary/70 hover:bg-secondary has-data-popup-open:bg-secondary',
       )}
     >
-      <div className="relative z-1 flex">
+      <div
+        data-select-zone
+        className="group/select relative z-1 -my-2.5 -mr-1.5 -ml-3 flex items-center self-stretch py-2.5 pr-1.5 pl-3"
+      >
         <Checkbox
           checked={selected}
           aria-label={`Select ${s.fullName}`}
+          className="after:absolute after:inset-0 group-hover/select:border-ring"
           onClick={(e) => {
             e.stopPropagation()
             onSelect(s.id, e.shiftKey)
@@ -288,7 +316,9 @@ export function RepoRow({
             onBlur={() => onHover?.(null)}
           >
             <span className="font-normal text-muted-foreground">{s.owner}/</span>
-            <span className="underline-offset-2 group-hover:underline">{s.name}</span>
+            <span className="underline-offset-2 group-hover:underline group-has-[[data-select-zone]:hover]:no-underline">
+              {s.name}
+            </span>
           </button>
           {s.isCruft && (
             <Tooltip content={s.rules.reasons.join(' · ') || 'Clef flagged this as likely cruft'}>
@@ -326,30 +356,37 @@ export function RepoRow({
       <div className="hidden min-w-0 items-center gap-1 md:flex">
         <RowLists repoId={s.id} lists={lists} suggested={suggested} suggestion={s.suggestion} />
       </div>
-      <div className="relative z-1 flex items-center justify-end gap-0.5 opacity-100 transition md:pointer-events-none md:absolute md:top-1/2 md:right-2 md:-translate-y-1/2 md:rounded-md md:border md:bg-popover md:p-0.5 md:opacity-0 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100 md:group-hover:pointer-events-auto md:group-hover:opacity-100">
-        <ListPicker repoIds={[s.id]}>
-          <Button size="icon-sm" variant="ghost" aria-label="Edit lists">
-            <ListPlusIcon />
-          </Button>
-        </ListPicker>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="More" />}>
-            <MoreHorizontalIcon />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLinkItem href={s.url} target="_blank" rel="noreferrer">
-              <ExternalLinkIcon /> Open on GitHub
-            </DropdownMenuLinkItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => unstar.mutate([s.id])}>
-              <StarOffIcon /> Unstar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {showToolbar && (
+        <div className="relative z-1 flex items-center justify-end gap-0.5 opacity-100 transition md:pointer-events-none md:absolute md:top-1/2 md:right-2 md:-translate-y-1/2 md:rounded-md md:border md:bg-popover md:p-0.5 md:opacity-0 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:has-data-popup-open:pointer-events-auto md:has-data-popup-open:opacity-100">
+          <ListPicker repoIds={[s.id]}>
+            <Button size="icon-sm" variant="ghost" aria-label="Edit lists">
+              <ListPlusIcon />
+            </Button>
+          </ListPicker>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button size="icon-sm" variant="ghost" aria-label="More" />}
+            >
+              <MoreHorizontalIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLinkItem href={s.url} target="_blank" rel="noreferrer">
+                <ExternalLinkIcon /> Open on GitHub
+              </DropdownMenuLinkItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => unstar.mutate([s.id])}>
+                <StarOffIcon /> Unstar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   )
 }
+
+/** Memoised: the Stars list re-renders on every scroll step, and an unchanged row should cost nothing. */
+export const RepoRow = memo(RepoRowImpl)
 
 /** The Lists cell of a row: the first list (+N more), else Clef's suggestion, else "Unlisted". */
 function RowLists({

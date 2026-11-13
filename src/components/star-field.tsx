@@ -1,6 +1,6 @@
 import { HEALTH_LABEL, type Health } from '@shared/scoring'
 import { LocateFixedIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { ACCENT, CATEGORICAL_3, HEALTH_CHART, HEALTH_CLASS, OTHER } from '@/lib/palette'
 import type { EStar } from '@/lib/queries'
@@ -170,7 +170,7 @@ const TURN: Record<string, readonly [number, number]> = {
   ArrowDown: [0, 0.08],
 }
 
-export function StarField({
+function StarFieldImpl({
   stars,
   onOpen,
   height: maxHeight = 520,
@@ -882,3 +882,6 @@ export function StarField({
     </div>
   )
 }
+
+/** Memoised: pages that host it (Stars) re-render on scroll without changing its props. */
+export const StarField = memo(StarFieldImpl)

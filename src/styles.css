@@ -126,6 +126,71 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Placeholder rows painted behind a virtualized list. On a hard fling the browser scrolls ahead of
+ * React; this shows until the real rows mount, instead of an empty void. Pure CSS, so it paints
+ * without the main thread. Each band is one row tall (--row-h, kept in step with STAR_ROW_H in
+ * src/routes/stars.tsx): a checkbox, a name bar, a description bar and the row hairline. Bars
+ * alternate width every other row so the field reads as text, not stripes. Real rows sit on an
+ * opaque background, so none of this shows through them.
+ */
+@utility row-placeholders {
+  --row-h: 81px;
+  --ph: color-mix(in oklab, var(--muted-foreground) 13%, transparent);
+  --ph-x: 60px;
+  --ph-name: 12px;
+  --ph-desc: 36px;
+  background-image:
+    linear-gradient(to top, var(--border) 1px, transparent 1px),
+    linear-gradient(
+      transparent calc(var(--row-h) / 2 - 8px),
+      var(--ph) 0 calc(var(--row-h) / 2 + 8px),
+      transparent 0
+    ),
+    linear-gradient(
+      transparent calc(var(--ph-name) + 5px),
+      var(--ph) 0 calc(var(--ph-name) + 15px),
+      transparent 0
+    ),
+    linear-gradient(
+      transparent calc(var(--ph-name) + 5px + var(--row-h)),
+      var(--ph) 0 calc(var(--ph-name) + 15px + var(--row-h)),
+      transparent 0
+    ),
+    linear-gradient(
+      transparent calc(var(--ph-desc) + 4px),
+      var(--ph) 0 calc(var(--ph-desc) + 11px),
+      transparent 0
+    ),
+    linear-gradient(
+      transparent calc(var(--ph-desc) + 4px + var(--row-h)),
+      var(--ph) 0 calc(var(--ph-desc) + 11px + var(--row-h)),
+      transparent 0
+    );
+  background-size:
+    100% var(--row-h),
+    16px var(--row-h),
+    9rem calc(var(--row-h) * 2),
+    12.5rem calc(var(--row-h) * 2),
+    min(19rem, 60%) calc(var(--row-h) * 2),
+    min(14rem, 50%) calc(var(--row-h) * 2);
+  background-position:
+    0 0,
+    12px 0,
+    var(--ph-x) 0,
+    var(--ph-x) 0,
+    var(--ph-x) 0,
+    var(--ph-x) 0;
+  background-repeat: repeat-y;
+
+  @media (width >= 48rem) {
+    --row-h: 57.5px;
+    --ph-x: 100px;
+    --ph-name: 10px;
+    --ph-desc: 30px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -11,7 +11,7 @@ import {
   StarOffIcon,
   XIcon,
 } from 'lucide-react'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { PageHeader } from '@/components/bits'
@@ -84,6 +84,10 @@ function sorter(sort: keyof typeof SORTS): (a: EStar, b: EStar) => number {
       return (a, b) => b.starredAt.localeCompare(a.starredAt)
   }
 }
+
+/** Typical row height, mobile and md+; kept in step with --row-h in the row-placeholders utility. */
+const STAR_ROW_H = { narrow: 81, wide: 57.5 }
+const isWide = () => typeof window !== 'undefined' && window.matchMedia('(width >= 48rem)').matches
 
 function Library() {
   const search = Route.useSearch()
@@ -166,20 +170,34 @@ function Library() {
   const listRef = useRef<HTMLDivElement>(null)
   const virt = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: () => 62,
+    estimateSize: () => (isWide() ? STAR_ROW_H.wide : STAR_ROW_H.narrow),
     overscan: 8,
     scrollMargin: listRef.current?.offsetTop ?? 0,
   })
 
-  const onSelect = (id: string, shift: boolean) => {
+  // Stable callbacks so memoised rows skip re-rendering on scroll; they read the latest rows and
+  // scroll state through refs.
+  const [hovered, setHovered] = useState<string | null>(null)
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
+  const scrollingRef = useRef(false)
+  scrollingRef.current = virt.isScrolling
+  // Rows sliding under a still cursor fire mouseenter; only a cursor that moves should pin a star.
+  const onHover = useCallback((id: string | null) => {
+    if (!scrollingRef.current) {
+      setHovered(id)
+    }
+  }, [])
+  const onSelect = useCallback((id: string, shift: boolean) => {
+    const list = rowsRef.current
     setSelected((prev) => {
       const next = new Set(prev)
       if (shift && lastClicked.current) {
-        const a = rows.findIndex((r) => r.id === lastClicked.current)
-        const b = rows.findIndex((r) => r.id === id)
+        const a = list.findIndex((r) => r.id === lastClicked.current)
+        const b = list.findIndex((r) => r.id === id)
         const [lo, hi] = a < b ? [a, b] : [b, a]
         for (let i = lo; i <= hi; i += 1) {
-          const r = rows[i]
+          const r = list[i]
           if (r) {
             next.add(r.id)
           }
@@ -192,7 +210,7 @@ function Library() {
       return next
     })
     lastClicked.current = id
-  }
+  }, [])
 
   const activeFilters: Array<[string, () => void]> = []
   if (search.list) {
@@ -216,7 +234,6 @@ function Library() {
 
   const ids = [...selected]
   const allSelected = rows.length > 0 && selected.size === rows.length
-  const [hovered, setHovered] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const headRef = useRef<HTMLDivElement>(null)
   const [barH, setBarH] = useState(110)
@@ -281,7 +298,13 @@ function Library() {
       )
     }
     return (
-      <div ref={listRef} style={{ height: virt.getTotalSize(), position: 'relative' }}>
+      // row-placeholders paints stand-in rows behind the list, so a fling that outruns React
+      // shows rows still arriving rather than black. Each real row is opaque on top of it.
+      <div
+        ref={listRef}
+        className="row-placeholders"
+        style={{ height: virt.getTotalSize(), position: 'relative' }}
+      >
         {virt.getVirtualItems().map((v) => {
           const s = rows[v.index]
           if (!s) {
@@ -292,15 +315,10 @@ function Library() {
               key={s.id}
               data-index={v.index}
               ref={virt.measureElement}
-              className="absolute inset-x-0"
+              className="absolute inset-x-0 bg-background"
               style={{ transform: `translateY(${v.start - virt.options.scrollMargin}px)` }}
             >
-              <RepoRow
-                s={s}
-                selected={selected.has(s.id)}
-                onSelect={onSelect}
-                onHover={setHovered}
-              />
+              <RepoRow s={s} selected={selected.has(s.id)} onSelect={onSelect} onHover={onHover} />
             </div>
           )
         })}
