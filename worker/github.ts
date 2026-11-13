@@ -193,11 +193,16 @@ const StarPage = z.object({
     starredRepositories: z.object({
       totalCount: z.number(),
       pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
-      edges: z.array(z.object({ starredAt: z.string(), node: GqlRepo })),
+      edges: z.array(z.object({ starredAt: z.string(), node: z.object({ id: z.string() }) })),
     }),
   }),
 })
 
+/**
+ * One page of the viewer's stars, newest first. The page itself asks only for ids: GitHub cuts
+ * a GraphQL query off at about 10 seconds, and 100 stars with every RepoFields field took
+ * longer. The repos' data then comes from reposByIds, whose smaller batches run in parallel.
+ */
 export async function starPage(token: string, after: string | null) {
   const data = await gql<unknown>(
     token,
@@ -206,14 +211,22 @@ export async function starPage(token: string, after: string | null) {
         starredRepositories(first: 100, after: $after, orderBy: { field: STARRED_AT, direction: DESC }) {
           totalCount
           pageInfo { hasNextPage endCursor }
-          edges { starredAt node { ...RepoFields } }
+          edges { starredAt node { id } }
         }
       }
-    }
-    ${REPO_FIELDS}`,
+    }`,
     { after },
   )
-  return StarPage.parse(data).viewer.starredRepositories
+  const { totalCount, pageInfo, edges } = StarPage.parse(data).viewer.starredRepositories
+  const repos = await reposByIds(
+    token,
+    edges.map((e) => e.node.id),
+  )
+  const stars = edges.flatMap((e, i) => {
+    const repo = repos[i]
+    return repo ? [{ repo, starredAt: e.starredAt }] : []
+  })
+  return { totalCount, pageInfo, stars }
 }
 
 const ItemsConn = z.object({
@@ -319,18 +332,33 @@ async function listItemsPage(token: string, listId: string, after: string) {
   }
 }
 
-/** Refresh up to 100 repos by node id. Missing (deleted/private) repos come back as null. */
+/**
+ * Repos per nodes() query. 100 with every RepoFields field ran past GitHub's ~10-second query
+ * limit (a 502); 25 takes about 3 seconds, and the batches run in parallel.
+ */
+const NODES_PER_QUERY = 25
+
+/** Refresh repos by node id, in parallel batches. Missing (deleted/private) repos come back as null. */
 export async function reposByIds(token: string, ids: string[]): Promise<Array<Repo | null>> {
-  const data = await gql<{ nodes: unknown[] }>(
-    token,
-    `query($ids: [ID!]!) { nodes(ids: $ids) { ...RepoFields } } ${REPO_FIELDS}`,
-    { ids },
-    { allowPartial: true },
+  const batches = Array.from({ length: Math.ceil(ids.length / NODES_PER_QUERY) }, (_, i) =>
+    ids.slice(i * NODES_PER_QUERY, (i + 1) * NODES_PER_QUERY),
   )
-  return data.nodes.map((n) => {
-    const parsed = GqlRepo.safeParse(n)
-    return parsed.success ? toRepo(parsed.data) : null
-  })
+  const results = await Promise.all(
+    batches.map((batch) =>
+      gql<{ nodes: unknown[] }>(
+        token,
+        `query($ids: [ID!]!) { nodes(ids: $ids) { ...RepoFields } } ${REPO_FIELDS}`,
+        { ids: batch },
+        { allowPartial: true },
+      ),
+    ),
+  )
+  return results.flatMap((data) =>
+    data.nodes.map((n) => {
+      const parsed = GqlRepo.safeParse(n)
+      return parsed.success ? toRepo(parsed.data) : null
+    }),
+  )
 }
 
 /** Several topic searches in a single request using aliases. */

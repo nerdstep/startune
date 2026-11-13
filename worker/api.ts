@@ -86,13 +86,8 @@ export const api = new Hono<AppEnv>()
       for (let i = 0; i < PAGES_PER_STEP; i += 1) {
         const page = await gh.starPage(token, after)
         total = page.totalCount
-        await saveStars(
-          c.env.DB,
-          userId,
-          runId,
-          page.edges.map((e) => ({ repo: gh.toRepo(e.node), starredAt: e.starredAt })),
-        )
-        processed += page.edges.length
+        await saveStars(c.env.DB, userId, runId, page.stars)
+        processed += page.stars.length
         after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null
         if (!after) {
           break
