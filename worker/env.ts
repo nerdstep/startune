@@ -5,11 +5,13 @@ export interface Bindings {
   SESSION_SECRET: string
   GITHUB_CLIENT_ID?: string
   GITHUB_CLIENT_SECRET?: string
-  /** Comma-separated GitHub logins. Empty = the first person to sign in owns the install. */
+  /** Comma-separated GitHub logins allowed to sign in. Required outside local development. */
   ALLOWED_USERS?: string
   /** "clef-flash" (default, fast/cheap) or "clef" */
   CLEF_MODEL?: string
   GITHUB_SCOPES?: string
+  /** Rate limit on token sign-in (wrangler.jsonc `ratelimits`); absent in tests. */
+  SIGN_IN_LIMIT?: RateLimit
 }
 
 export interface SessionUser {

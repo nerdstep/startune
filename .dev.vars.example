@@ -6,3 +6,6 @@ GITHUB_CLIENT_ID=none
 GITHUB_CLIENT_SECRET=none
 # Random string used to encrypt GitHub tokens at rest, e.g. `openssl rand -base64 32`
 SESSION_SECRET=change-me-to-a-long-random-string
+# Your GitHub username (comma-separate several). Nobody else can sign in, so nobody can claim
+# the install before you do. Optional for local development.
+ALLOWED_USERS=your-github-username

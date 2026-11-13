@@ -16,12 +16,15 @@
     }
   ],
   "ai": { "binding": "AI" },
+  // Token sign-in: 10 attempts per minute per IP, per Cloudflare location.
+  "ratelimits": [
+    { "name": "SIGN_IN_LIMIT", "namespace_id": "7301", "simple": { "limit": 10, "period": 60 } }
+  ],
   "triggers": { "crons": ["17 9 * * *"] },
   "observability": { "enabled": true },
   "vars": {
-    "ALLOWED_USERS": "",
     "CLEF_MODEL": "clef-flash",
     "GITHUB_SCOPES": "read:user public_repo"
   }
-  // Secrets (wrangler secret put …): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET
+  // Secrets (wrangler secret put …): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ALLOWED_USERS
 }

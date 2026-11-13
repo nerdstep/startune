@@ -15,6 +15,7 @@ import { backend, setDemo } from '@/lib/api'
 import { sampleLibrary } from '@/lib/demo'
 import { derive, useMe } from '@/lib/queries'
 
+import type { AuthError } from '../../worker/auth'
 import { GithubIcon } from './github-icon'
 import { Logo } from './shell'
 import { StarField } from './star-field'
@@ -37,6 +38,28 @@ const FEATURES = [
     text: 'Clef on Workers AI suggests a List for each repo, inside your own Cloudflare account.',
   },
 ]
+
+/**
+ * Messages for the codes the OAuth callback passes back (AuthError in worker/auth.ts). Only these
+ * are shown: the URL never supplies its own text.
+ */
+const AUTH_ERRORS: Record<AuthError, string> = {
+  denied: 'GitHub sign-in was cancelled.',
+  expired: 'Sign-in expired. Please try again.',
+  no_token: "GitHub didn't return a token. Please try again.",
+  not_allowed:
+    "That GitHub account isn't allowed on this StarTune install. Ask the owner to add you to ALLOWED_USERS.",
+  no_owner:
+    "This StarTune install doesn't have an owner yet. Set ALLOWED_USERS to your GitHub username, then sign in.",
+  failed: 'Sign-in failed. Please try again.',
+}
+
+function authErrorMessage(code: string | null): string | null {
+  if (!code) {
+    return null
+  }
+  return code in AUTH_ERRORS ? AUTH_ERRORS[code as AuthError] : AUTH_ERRORS.failed
+}
 
 /** A classic token with the two scopes StarTune needs, pre-filled on GitHub. */
 const NEW_TOKEN_URL =
@@ -64,7 +87,7 @@ export function Login() {
   const inset = Math.min(560, view.w * 0.38)
   const fieldHeight = Math.min(view.h, Math.round((view.w - inset) * 0.78))
   const [token, setToken] = useState('')
-  const [error, setError] = useState<string | null>(params.get('auth_error'))
+  const [error, setError] = useState(() => authErrorMessage(params.get('auth_error')))
   const [busy, setBusy] = useState(false)
 
   const submit = async (e: React.FormEvent) => {

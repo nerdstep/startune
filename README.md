@@ -56,7 +56,8 @@ Output tokens aren't billed, so classifying a thousand stars costs very little a
 2. Click **Deploy to Cloudflare** above. It forks the repo, creates the D1 database, and asks for:
    - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: from step 1. If you'd rather sign in with a personal access token, enter `none` for both.
    - `SESSION_SECRET`: any long random string (`openssl rand -base64 32`).
-3. Open the Worker URL and sign in. **The first person to sign in owns the install.** To let other people in, set `ALLOWED_USERS=alice,bob`.
+   - `ALLOWED_USERS`: your GitHub username. Only these accounts can sign in; comma-separate several (`alice,bob`) to let others in.
+3. Open the Worker URL and sign in.
 
 ### Manually
 
@@ -68,6 +69,7 @@ bunx wrangler login
 bunx wrangler secret put GITHUB_CLIENT_ID
 bunx wrangler secret put GITHUB_CLIENT_SECRET
 bunx wrangler secret put SESSION_SECRET
+bunx wrangler secret put ALLOWED_USERS     # your GitHub username
 bun run deploy   # build → deploy (auto-provisions D1) → apply migrations
 ```
 
@@ -83,7 +85,7 @@ If you sign in with a classic personal access token, it needs the `read:user` an
 | --- | --- | --- | --- |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | secret | — | OAuth app credentials, or `none` |
 | `SESSION_SECRET` | secret | — | Encrypts GitHub tokens at rest (AES-GCM, HKDF). Changing it signs everyone out. |
-| `ALLOWED_USERS` | var | *(empty)* | Comma-separated logins. Empty means the first sign-in claims the install. |
+| `ALLOWED_USERS` | secret | — | Comma-separated GitHub logins allowed to sign in. Required: with it unset, nobody new can sign in (except in local development). Removing a login signs it out. |
 | `CLEF_MODEL` | var | `clef-flash` | `clef-flash` or `clef` |
 | `GITHUB_SCOPES` | var | `read:user public_repo` | OAuth scopes requested at sign-in |
 

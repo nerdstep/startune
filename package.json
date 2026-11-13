@@ -70,6 +70,9 @@
     "vitest-browser-react": "^2.3.0",
     "wrangler": "^4.160.0"
   },
+  "overrides": {
+    "katex": "^0.18.2"
+  },
   "packageManager": "bun@1.4.4",
   "cloudflare": {
     "bindings": {
@@ -83,7 +86,7 @@
         "description": "Long random string used to encrypt GitHub tokens at rest. Generate one with `openssl rand -base64 32`."
       },
       "ALLOWED_USERS": {
-        "description": "Comma-separated GitHub logins allowed to sign in. Leave empty and the first person to sign in owns this install."
+        "description": "Your GitHub username: the only account that can sign in. Comma-separate several to let others in."
       },
       "CLEF_MODEL": {
         "description": "Workers AI decision model: `clef-flash` (fast, cheap) or `clef` (larger)."

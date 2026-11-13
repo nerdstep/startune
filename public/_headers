@@ -1,0 +1,11 @@
+# Security headers for the app's pages and assets, which Workers static assets serve directly
+# (the Worker, and Hono's secureHeaders, only see /api/* and /auth/*).
+# - frame-ancestors / X-Frame-Options: no framing, so buttons such as Unstar can't be clickjacked.
+# - Scripts, fonts and data only from this origin; avatars from GitHub.
+# - style-src allows inline styles: components (e.g. the toast library) inject <style> at runtime.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://github.com https://avatars.githubusercontent.com; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
