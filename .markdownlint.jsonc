@@ -1,4 +1,4 @@
-// Rules for markdownlint, shared by the VS Code extension and `npm run lint:md`.
+// Rules for markdownlint, shared by the VS Code extension and `bun run lint:md`.
 // Starting point: the mostly monorepo's config.
 {
   // Prose is wrapped by the editor, not by hand.

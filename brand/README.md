@@ -26,7 +26,7 @@ constants at the top of the script and run it again. Keep the mark geometry in s
 `MARK_STAR` and `MARK_CORNERS` in `shell.tsx`, and with `public/favicon.svg`.
 
 ```sh
-npm install                      # provides the Geist font
+bun install                      # provides the Geist font
 python -m venv .venv
 .venv/Scripts/pip install -r brand/requirements.txt   # macOS/Linux: .venv/bin/pip
 .venv/Scripts/python brand/make_logo.py

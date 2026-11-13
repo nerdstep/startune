@@ -8,18 +8,18 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "deploy": "bun run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "lint": "npm run typecheck && npm run format:check && npm run lint:check",
-    "lint:check": "oxlint . && npm run lint:type-aware && npm run lint:md",
+    "lint": "bun run typecheck && bun run format:check && bun run lint:check",
+    "lint:check": "oxlint . && bun run lint:type-aware && bun run lint:md",
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
     "lint:type-aware": "oxlint --config .oxlintrc.type-aware.json .",
-    "lint:fix": "oxlint --fix . && oxfmt . && npm run lint:type-aware && markdownlint-cli2 --fix \"**/*.md\"",
+    "lint:fix": "oxlint --fix . && oxfmt . && bun run lint:type-aware && markdownlint-cli2 --fix \"**/*.md\"",
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts",
     "seed:local": "node scripts/seed-local.mjs > .wrangler/seed.sql && wrangler d1 execute DB --local --file .wrangler/seed.sql"
   },
@@ -70,6 +70,7 @@
     "vitest-browser-react": "^2.3.0",
     "wrangler": "^4.160.0"
   },
+  "packageManager": "bun@1.4.4",
   "cloudflare": {
     "bindings": {
       "GITHUB_CLIENT_ID": {

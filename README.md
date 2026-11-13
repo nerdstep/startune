@@ -60,13 +60,15 @@ Output tokens aren't billed, so classifying a thousand stars costs very little a
 
 ### Manually
 
+The project uses [Bun](https://bun.sh) for installs and scripts.
+
 ```bash
-npm install
-npx wrangler login
-npx wrangler secret put GITHUB_CLIENT_ID
-npx wrangler secret put GITHUB_CLIENT_SECRET
-npx wrangler secret put SESSION_SECRET
-npm run deploy   # build → deploy (auto-provisions D1) → apply migrations
+bun install
+bunx wrangler login
+bunx wrangler secret put GITHUB_CLIENT_ID
+bunx wrangler secret put GITHUB_CLIENT_SECRET
+bunx wrangler secret put SESSION_SECRET
+bun run deploy   # build → deploy (auto-provisions D1) → apply migrations
 ```
 
 ### Signing in with a token
@@ -89,18 +91,20 @@ The cron (`17 9 * * *` UTC) refreshes repo metadata and records a star-count sna
 
 ## Local development
 
+Needs [Bun](https://bun.sh) (`bun install` first).
+
 ```bash
 cp .dev.vars.example .dev.vars          # set SESSION_SECRET; "none" for OAuth is fine locally
-npm run db:migrate:local
-npm run dev                              # Workers AI is remote, so this needs `wrangler login`
-CF_LOCAL_ONLY=1 npm run dev              # fully offline (Clef calls will fail)
-npm run seed:local                       # fake signed-in user; cookie st_session=local-test-session-cookie
-npx playwright install chromium          # once, for the browser tests
-npm test                                 # vitest: unit tests, plus component tests in headless Chromium
-npm run test:unit                        # unit tests only: scoring, own-repo rules, Clef request building, crypto
-npm run lint                             # typecheck, oxfmt check, oxlint (+ type-aware rules), markdownlint
-npm run lint:md                          # markdownlint only
-npm run lint:fix                         # oxlint fixes, oxfmt, markdownlint fixes
+bun run db:migrate:local
+bun run dev                              # Workers AI is remote, so this needs `wrangler login`
+CF_LOCAL_ONLY=1 bun run dev              # fully offline (Clef calls will fail)
+bun run seed:local                       # fake signed-in user; cookie st_session=local-test-session-cookie
+bunx playwright install chromium         # once, for the browser tests
+bun run test                             # vitest: unit tests, plus component tests in headless Chromium
+bun run test:unit                        # unit tests only: scoring, own-repo rules, Clef request building, crypto
+bun run lint                             # typecheck, oxfmt check, oxlint (+ type-aware rules), markdownlint
+bun run lint:md                          # markdownlint only
+bun run lint:fix                         # oxlint fixes, oxfmt, markdownlint fixes
 ```
 
 Formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter) and linting is [Oxlint](https://oxc.rs/docs/guide/usage/linter) with the `@shadcn/lint` design-token rules; VS Code applies both on save with the recommended Oxc extension. Markdown is checked by [markdownlint](https://github.com/DavidAnson/markdownlint-cli2), with rules in `.markdownlint.jsonc` that the recommended markdownlint extension also reads.
