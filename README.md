@@ -95,7 +95,9 @@ npm run db:migrate:local
 npm run dev                              # Workers AI is remote, so this needs `wrangler login`
 CF_LOCAL_ONLY=1 npm run dev              # fully offline (Clef calls will fail)
 npm run seed:local                       # fake signed-in user; cookie st_session=local-test-session-cookie
-npm test                                 # vitest: scoring, own-repo rules, Clef request building, crypto
+npx playwright install chromium          # once, for the browser tests
+npm test                                 # vitest: unit tests, plus component tests in headless Chromium
+npm run test:unit                        # unit tests only: scoring, own-repo rules, Clef request building, crypto
 npm run lint                             # typecheck, oxfmt check, oxlint (+ type-aware rules), markdownlint
 npm run lint:md                          # markdownlint only
 npm run lint:fix                         # oxlint fixes, oxfmt, markdownlint fixes

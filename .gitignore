@@ -10,3 +10,6 @@ src/routeTree.gen.ts
 # Python (brand/make_logo.py)
 .venv/
 __pycache__/
+
+# Vitest browser-mode failure screenshots
+.vitest/
