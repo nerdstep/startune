@@ -122,6 +122,8 @@ brand/         logo files and the script that generates them
 docs/          README screenshot
 ```
 
+The browser calls the Worker through Hono's typed RPC client, so each request and response type comes straight from its route in `worker/`, and request bodies are validated with the zod schemas in `shared/`.
+
 Sync is driven by the client: the browser calls `/api/sync` page by page, 400 stars per request. That way even a library of 10k stars never runs into Worker CPU or subrequest limits, and you get a live progress bar. A star that GitHub no longer reports is removed at the end of a full sync.
 
 Chart colors come from a palette validated for color-vision deficiency on the dark surface (see `src/lib/palette.ts`). Colors are never the only signal: every chart has a legend, labels, and hover tooltips, health colors always come with a class letter, and the star map also uses hollow and faded marks.

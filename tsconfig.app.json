@@ -4,7 +4,9 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client"]
+    // The Worker's runtime types too: src/lib/api.ts imports the route types (Hono RPC), which
+    // name D1Database and friends. Their globals are visible to src/ but don't exist in browsers.
+    "types": ["vite/client", "./worker/worker-configuration.d.ts"]
   },
   "include": ["src", "shared"]
 }

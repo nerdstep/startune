@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { secureHeaders } from 'hono/secure-headers'
 
 import { api } from './api'
@@ -21,12 +22,19 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-app.route('/auth', auth)
-app.route('/api', api)
+const routes = app.route('/auth', auth).route('/api', api)
+
+/** The API's route tree, for the typed client in src/lib/api.ts (Hono RPC). */
+export type AppType = typeof routes
+
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
 app.onError((err, c) => {
   if (err instanceof HttpError) {
+    return c.json({ error: err.message }, err.status)
+  }
+  // Hono's own errors, such as a malformed JSON body (400).
+  if (err instanceof HTTPException) {
     return c.json({ error: err.message }, err.status)
   }
   console.error(err)

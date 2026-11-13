@@ -214,3 +214,6 @@ export type ClassifyInput = z.infer<typeof ClassifyInput>
 export const TokenLoginInput = z.object({ token: z.string().trim().min(20).max(255) })
 
 export const ChartInput = z.object({ repoIds: z.array(z.string().min(1)).min(1).max(3) })
+
+/** `GET /api/mine?refresh=1` re-reads your repos from GitHub. */
+export const MineQuery = z.object({ refresh: z.literal('1').optional() })

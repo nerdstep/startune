@@ -5,7 +5,7 @@ import { TokenLoginInput } from '../shared/schemas'
 import { decrypt, encrypt, randomToken, sha256Hex } from './crypto'
 import { HttpError, oauthEnabled, type AppEnv, type Bindings } from './env'
 import { rest, viewer } from './github'
-import { parseBody } from './validate'
+import { valid } from './validate'
 
 const SESSION_COOKIE = 'st_session'
 const STATE_COOKIE = 'st_oauth_state'
@@ -64,91 +64,87 @@ async function signIn(c: Context<AppEnv>, token: string, scopes: string | null) 
 }
 
 export const auth = new Hono<AppEnv>()
-
-auth.get('/login', (c) => {
-  const clientId = c.env.GITHUB_CLIENT_ID
-  if (!oauthEnabled(c.env) || !clientId) {
-    return c.redirect('/?auth=token')
-  }
-  const state = randomToken(16)
-  setCookie(c, STATE_COOKIE, state, {
-    httpOnly: true,
-    secure: secure(c),
-    sameSite: 'Lax',
-    path: '/auth',
-    maxAge: 600,
+  .get('/login', (c) => {
+    const clientId = c.env.GITHUB_CLIENT_ID
+    if (!oauthEnabled(c.env) || !clientId) {
+      return c.redirect('/?auth=token')
+    }
+    const state = randomToken(16)
+    setCookie(c, STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: secure(c),
+      sameSite: 'Lax',
+      path: '/auth',
+      maxAge: 600,
+    })
+    const url = new URL('https://github.com/login/oauth/authorize')
+    url.searchParams.set('client_id', clientId)
+    url.searchParams.set('redirect_uri', new URL('/auth/callback', c.req.url).toString())
+    url.searchParams.set('scope', c.env.GITHUB_SCOPES || 'read:user public_repo')
+    url.searchParams.set('state', state)
+    return c.redirect(url.toString())
   })
-  const url = new URL('https://github.com/login/oauth/authorize')
-  url.searchParams.set('client_id', clientId)
-  url.searchParams.set('redirect_uri', new URL('/auth/callback', c.req.url).toString())
-  url.searchParams.set('scope', c.env.GITHUB_SCOPES || 'read:user public_repo')
-  url.searchParams.set('state', state)
-  return c.redirect(url.toString())
-})
+  .get('/callback', async (c) => {
+    const { code, state, error_description } = c.req.query()
+    const expected = getCookie(c, STATE_COOKIE)
+    deleteCookie(c, STATE_COOKIE, { path: '/auth' })
+    const fail = (msg: string) => c.redirect(`/?auth_error=${encodeURIComponent(msg)}`)
+    if (error_description) {
+      return fail(error_description)
+    }
+    if (!code || !state || state !== expected) {
+      return fail('Sign-in expired. Please try again.')
+    }
 
-auth.get('/callback', async (c) => {
-  const { code, state, error_description } = c.req.query()
-  const expected = getCookie(c, STATE_COOKIE)
-  deleteCookie(c, STATE_COOKIE, { path: '/auth' })
-  const fail = (msg: string) => c.redirect(`/?auth_error=${encodeURIComponent(msg)}`)
-  if (error_description) {
-    return fail(error_description)
-  }
-  if (!code || !state || state !== expected) {
-    return fail('Sign-in expired. Please try again.')
-  }
-
-  const res = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'StarTune',
-    },
-    body: JSON.stringify({
-      client_id: c.env.GITHUB_CLIENT_ID,
-      client_secret: c.env.GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: new URL('/auth/callback', c.req.url).toString(),
-    }),
+    const res = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'StarTune',
+      },
+      body: JSON.stringify({
+        client_id: c.env.GITHUB_CLIENT_ID,
+        client_secret: c.env.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: new URL('/auth/callback', c.req.url).toString(),
+      }),
+    })
+    const body = (await res.json()) as {
+      access_token?: string
+      scope?: string
+      error_description?: string
+    }
+    if (!body.access_token) {
+      return fail(body.error_description ?? "GitHub didn't return a token.")
+    }
+    try {
+      await signIn(c, body.access_token, body.scope ?? null)
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : 'Sign-in failed')
+    }
+    return c.redirect('/')
   })
-  const body = (await res.json()) as {
-    access_token?: string
-    scope?: string
-    error_description?: string
-  }
-  if (!body.access_token) {
-    return fail(body.error_description ?? "GitHub didn't return a token.")
-  }
-  try {
-    await signIn(c, body.access_token, body.scope ?? null)
-  } catch (e) {
-    return fail(e instanceof Error ? e.message : 'Sign-in failed')
-  }
-  return c.redirect('/')
-})
-
-/** Sign in with a personal access token (for installs without an OAuth app). */
-auth.post('/token', async (c) => {
-  const { token } = await parseBody(c, TokenLoginInput)
-  const check = await rest(token, '/user')
-  if (check.status === 401) {
-    throw new HttpError(401, 'GitHub rejected that token.')
-  }
-  await signIn(c, token, check.headers.get('x-oauth-scopes'))
-  return c.json({ ok: true })
-})
-
-auth.post('/logout', async (c) => {
-  const sid = getCookie(c, SESSION_COOKIE)
-  if (sid) {
-    await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?1`)
-      .bind(await sha256Hex(sid))
-      .run()
-  }
-  deleteCookie(c, SESSION_COOKIE, { path: '/' })
-  return c.json({ ok: true })
-})
+  /** Sign in with a personal access token (for installs without an OAuth app). */
+  .post('/token', valid('json', TokenLoginInput), async (c) => {
+    const { token } = c.req.valid('json')
+    const check = await rest(token, '/user')
+    if (check.status === 401) {
+      throw new HttpError(401, 'GitHub rejected that token.')
+    }
+    await signIn(c, token, check.headers.get('x-oauth-scopes'))
+    return c.json({ ok: true })
+  })
+  .post('/logout', async (c) => {
+    const sid = getCookie(c, SESSION_COOKIE)
+    if (sid) {
+      await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?1`)
+        .bind(await sha256Hex(sid))
+        .run()
+    }
+    deleteCookie(c, SESSION_COOKIE, { path: '/' })
+    return c.json({ ok: true })
+  })
 
 export async function currentUser(c: Context<AppEnv>) {
   const sid = getCookie(c, SESSION_COOKIE)

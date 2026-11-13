@@ -1,31 +1,22 @@
-import {
-  AudienceSchema,
-  BulkResultSchema,
-  ClassifyResultSchema,
-  DiscoverSchema,
-  LibrarySchema,
-  ListSchema,
-  MeSchema,
-  MineSchema,
-  ChartResultSchema,
-  SyncStepSchema,
-  type Audience,
-  type BulkResult,
-  type ClassifyInput,
-  type ClassifyResult,
-  type CreateListInput,
-  type Discover,
-  type Library,
-  type Me,
-  type Mine,
-  type ChartResult,
-  type ReviewInput,
-  type StarList,
-  type SyncStep,
-  type UpdateListsInput,
+import type {
+  Audience,
+  BulkResult,
+  ChartResult,
+  ClassifyInput,
+  ClassifyResult,
+  CreateListInput,
+  Discover,
+  Library,
+  Me,
+  Mine,
+  ReviewInput,
+  StarList,
+  SyncStep,
+  UpdateListsInput,
 } from '@shared/schemas'
-import { z } from 'zod'
+import { hc } from 'hono/client'
 
+import type { AppType } from '../../worker/index'
 import { createDemoBackend } from './demo'
 
 export class ApiError extends Error {
@@ -65,50 +56,42 @@ export interface Backend {
   exportBackup(): Promise<void>
 }
 
-async function call<S extends z.ZodType>(
-  path: string,
-  schema: S,
-  init?: RequestInit,
-): Promise<z.infer<S>> {
-  const res = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers,
-  })
+/** Typed client for the Worker's routes (Hono RPC): paths, inputs and outputs come from the server. */
+const client = hc<AppType>('/', { init: { credentials: 'same-origin' } })
+
+/** A response's JSON, or an ApiError carrying the server's `{ error }` message. */
+async function data<R extends { ok: boolean; status: number; json(): Promise<unknown> }>(
+  request: Promise<R>,
+): Promise<Awaited<ReturnType<R['json']>>> {
+  const res = await request
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null
     throw new ApiError(res.status, body?.error ?? `Request failed (${res.status})`)
   }
-  return schema.parse(await res.json())
+  return (await res.json()) as Awaited<ReturnType<R['json']>>
 }
 
-const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
-const Ok = z.object({ ok: z.boolean() }).passthrough()
+const { api, auth } = client
 
 const remote: Backend = {
   demo: false,
-  me: () => call('/api/me', MeSchema),
-  library: () => call('/api/library', LibrarySchema),
-  sync: (input) => call('/api/sync', SyncStepSchema, post(input)),
-  updateLists: (input) => call('/api/stars/lists', BulkResultSchema, post(input)),
-  unstar: (repoIds) => call('/api/stars/unstar', BulkResultSchema, post({ repoIds })),
-  star: (repoIds) => call('/api/stars/star', BulkResultSchema, post({ repoIds })),
-  review: async (input) => void (await call('/api/stars/review', Ok, post(input))),
-  createList: (input) => call('/api/lists', ListSchema, post(input)),
-  updateList: (id, input) =>
-    call(`/api/lists/${encodeURIComponent(id)}`, ListSchema, {
-      method: 'PATCH',
-      body: JSON.stringify(input),
-    }),
-  deleteList: async (id) =>
-    void (await call(`/api/lists/${encodeURIComponent(id)}`, Ok, { method: 'DELETE' })),
-  classify: (input) => call('/api/ai/classify', ClassifyResultSchema, post(input)),
-  discover: () => call('/api/discover', DiscoverSchema),
-  mine: (refresh) => call(`/api/mine${refresh ? '?refresh=1' : ''}`, MineSchema),
-  chartMine: (repoIds) => call('/api/mine/chart', ChartResultSchema, post({ repoIds })),
-  audience: () => call('/api/mine/audience', AudienceSchema),
-  tokenLogin: async (token) => void (await call('/auth/token', Ok, post({ token }))),
-  logout: async () => void (await call('/auth/logout', Ok, { method: 'POST' })),
+  me: () => data(api.me.$get()),
+  library: () => data(api.library.$get()),
+  sync: (input) => data(api.sync.$post({ json: input })),
+  updateLists: (input) => data(api.stars.lists.$post({ json: input })),
+  unstar: (repoIds) => data(api.stars.unstar.$post({ json: { repoIds } })),
+  star: (repoIds) => data(api.stars.star.$post({ json: { repoIds } })),
+  review: async (input) => void (await data(api.stars.review.$post({ json: input }))),
+  createList: (input) => data(api.lists.$post({ json: input })),
+  updateList: (id, input) => data(api.lists[':id'].$patch({ param: { id }, json: input })),
+  deleteList: async (id) => void (await data(api.lists[':id'].$delete({ param: { id } }))),
+  classify: (input) => data(api.ai.classify.$post({ json: input })),
+  discover: () => data(api.discover.$get()),
+  mine: (refresh) => data(api.mine.$get({ query: refresh ? { refresh: '1' } : {} })),
+  chartMine: (repoIds) => data(api.mine.chart.$post({ json: { repoIds } })),
+  audience: () => data(api.mine.audience.$get()),
+  tokenLogin: async (token) => void (await data(auth.token.$post({ json: { token } }))),
+  logout: async () => void (await data(auth.logout.$post())),
   exportBackup: async () => {
     window.location.href = '/api/export'
   },

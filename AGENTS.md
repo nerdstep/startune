@@ -7,7 +7,6 @@ A self-hosted Cloudflare Worker (Hono, `worker/`) serving a React app (`src/`) t
 
 ## Data
 
-- The client parses every API response with its schema in `shared/schemas.ts`. Change a route and its schema together.
 - Each `Backend` method (`src/lib/api.ts`) also has a demo version in `src/lib/demo.ts` or `demo-own.ts`. It returns plausible generated data and never calls GitHub.
 - Each schema change is a new file in `migrations/`; applied migrations stay unchanged.
 - The cron cleanup in `worker/cron.ts` deletes repos no table references. A new table that references repos joins its exemption list.
