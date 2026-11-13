@@ -27,7 +27,7 @@ StarTune runs entirely on **your own Cloudflare account**: a single Worker with 
 
 ### How health is classed
 
-Every repo gets a health class from its last push, named after star classes: **O/B** thriving (pushed in the last 3 months), **A/F** active (the last year), **G** quiet (1 to 3 years), **K** dormant (3+ years), and **M** archived. The class shows as a color and a letter wherever the repo appears.
+Every repo gets a health class from the last commit on its default branch, named after star classes: **O/B** thriving (pushed in the last 3 months), **A/F** active (the last year), **G** quiet (1 to 3 years), **K** dormant (3+ years), and **M** archived. The class shows as a color and a letter wherever the repo appears. Pushes to other branches don't count: GitHub's own "pushed" date includes bot branches such as Dependabot's, which make long-abandoned repos look recently active.
 
 ### How cruft is scored
 

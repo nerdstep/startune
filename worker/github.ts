@@ -110,6 +110,13 @@ export const REPO_FIELDS = /* GraphQL */ `
     }
     createdAt
     pushedAt
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          committedDate
+        }
+      }
+    }
     latestRelease {
       publishedAt
       tagName
@@ -136,6 +143,9 @@ export const GqlRepo = z.object({
   licenseInfo: z.object({ spdxId: z.string().nullish() }).nullish(),
   createdAt: z.string().nullish(),
   pushedAt: z.string().nullish(),
+  defaultBranchRef: z
+    .object({ target: z.object({ committedDate: z.string().nullish() }).nullish() })
+    .nullish(),
   latestRelease: z.object({ publishedAt: z.string().nullish(), tagName: z.string() }).nullish(),
 })
 export type GqlRepo = z.infer<typeof GqlRepo>
@@ -160,7 +170,10 @@ export function toRepo(r: GqlRepo): Repo {
       r.licenseInfo?.spdxId && r.licenseInfo.spdxId !== 'NOASSERTION' ? r.licenseInfo.spdxId : null,
     ownerAvatar: r.owner.avatarUrl ?? null,
     createdAt: r.createdAt ?? null,
-    pushedAt: r.pushedAt ?? null,
+    // The latest commit on the default branch, not GitHub's pushedAt: pushedAt counts pushes to any
+    // branch, so bot branches (Dependabot and the like) make long-abandoned repos look recently
+    // active. pushedAt is the fallback for a repo with no commits.
+    pushedAt: r.defaultBranchRef?.target?.committedDate ?? r.pushedAt ?? null,
     latestReleaseAt: r.latestRelease?.publishedAt ?? null,
     latestReleaseTag: r.latestRelease?.tagName ?? null,
   }
