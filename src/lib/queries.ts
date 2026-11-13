@@ -124,25 +124,39 @@ export function derive(lib: Library): Derived {
 
 type Failure = { repoId: string; error: string }
 
+const RESTRICTED = /OAuth App access restrictions/i
+
 /** GitHub's reason, in terms of what the user can do about it where we know. */
 function explainFailure(error: string): string {
   // Organizations can restrict OAuth apps; GitHub's message names the org in backticks.
-  if (/OAuth App access restrictions/i.test(error)) {
+  if (RESTRICTED.test(error)) {
     const org = /`([^`]+)` organization/.exec(error)?.[1]
     return `${org ? `the ${org} organization` : 'its organization'} restricts third-party apps. An owner can approve StarTune for it, or sign in with a personal access token instead.`
   }
   return error
 }
 
-/** "Couldn't unstar owner/name: reason" (or "3 repos"), with GitHub's reason for the first. */
-function failureMessage(verb: string, failed: Failure[], names: Map<string, string>): string {
+/**
+ * Toasts a bulk action's failures: "Couldn't unstar owner/name: reason" (or "3 repos"), with
+ * GitHub's reason for the first. When an organization's OAuth app restriction caused it, nothing
+ * StarTune does can get through, so the toast offers the repo on GitHub to change it there.
+ */
+function toastFailures(verb: string, failed: Failure[], names: Map<string, string>) {
   const first = failed[0]
   if (!first) {
-    return ''
+    return
   }
-  const what =
-    failed.length === 1 ? (names.get(first.repoId) ?? '1 repo') : `${failed.length} repos`
-  return `Couldn't ${verb} ${what}: ${explainFailure(first.error)}`
+  const name = names.get(first.repoId)
+  const what = failed.length === 1 ? (name ?? '1 repo') : `${failed.length} repos`
+  toast.error(`Couldn't ${verb} ${what}: ${explainFailure(first.error)}`, {
+    action:
+      name && RESTRICTED.test(first.error)
+        ? {
+            label: 'Open on GitHub',
+            onClick: () => window.open(`https://github.com/${name}`, '_blank', 'noopener'),
+          }
+        : undefined,
+  })
 }
 
 const repoNames = (lib: Library | undefined) =>
@@ -198,7 +212,7 @@ export function useUpdateLists() {
         throw e
       }
       if (failed.length > 0) {
-        toast.error(failureMessage('update', failed, names))
+        toastFailures('update', failed, names)
         void qc.invalidateQueries({ queryKey: qk.library })
       }
       return v
@@ -240,7 +254,7 @@ export function useStar() {
     onSuccess: ({ failed, names }) => {
       void qc.invalidateQueries({ queryKey: qk.library })
       if (failed.length > 0) {
-        toast.error(failureMessage('star', failed, names))
+        toastFailures('star', failed, names)
       }
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -294,7 +308,7 @@ export function useUnstar() {
         })
       }
       if (failed.length > 0) {
-        toast.error(failureMessage('unstar', failed, names))
+        toastFailures('unstar', failed, names)
       }
     },
     onError: (e) => toast.error(errMsg(e)),
