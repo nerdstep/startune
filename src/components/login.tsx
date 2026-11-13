@@ -63,7 +63,7 @@ function authErrorMessage(code: string | null): string | null {
 
 /** A classic token with the two scopes StarTune needs, pre-filled on GitHub. */
 const NEW_TOKEN_URL =
-  'https://github.com/settings/tokens/new?scopes=public_repo,read:user&description=StarTune'
+  'https://github.com/settings/tokens/new?scopes=public_repo,user&description=StarTune'
 
 function useViewport() {
   const [v, setV] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -119,7 +119,7 @@ export function Login() {
       />
       <p className="text-xs leading-relaxed text-muted-foreground">
         A classic token with the <code className="font-mono text-foreground">public_repo</code> and{' '}
-        <code className="font-mono text-foreground">read:user</code> scopes.{' '}
+        <code className="font-mono text-foreground">user</code> scopes.{' '}
         <a
           href={NEW_TOKEN_URL}
           target="_blank"

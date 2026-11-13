@@ -76,9 +76,9 @@ bun run deploy   # build → deploy (auto-provisions D1) → apply migrations
 
 ### Signing in with a token
 
-If you sign in with a classic personal access token, it needs the `read:user` and `public_repo` scopes. `public_repo` is what GitHub requires for starring and unstarring.
+If you sign in with a classic personal access token, it needs the `user` and `public_repo` scopes. GitHub requires `public_repo` for starring and unstarring, and `user` for Lists (its `UserList` mutations need it, and nothing narrower works). `user` also lets an app edit your profile; StarTune only uses it for Lists.
 
-> **About the Lists scope:** GitHub doesn't document which OAuth scope its `UserList` mutations need. If creating a list or adding a repo to one fails, StarTune shows GitHub's "missing permission" message, which names the scope it wants. Add that scope to `GITHUB_SCOPES` (for an OAuth app) or to your token, then sign in again.
+> **Organizations that restrict OAuth apps:** some organizations block third-party OAuth apps from changing their repos, so starring or unstarring those repos through an OAuth sign-in fails. StarTune says which organization and offers to open the repo on GitHub. A classic personal access token isn't affected.
 
 ## Configuration
 
@@ -88,7 +88,7 @@ If you sign in with a classic personal access token, it needs the `read:user` an
 | `SESSION_SECRET` | secret | — | Encrypts GitHub tokens at rest (AES-GCM, HKDF). Changing it signs everyone out. |
 | `ALLOWED_USERS` | secret | — | Comma-separated GitHub logins allowed to sign in. Required: with it unset, nobody new can sign in (except in local development). Removing a login signs it out. |
 | `CLEF_MODEL` | var | `clef-flash` | `clef-flash` or `clef` |
-| `GITHUB_SCOPES` | var | `read:user public_repo` | OAuth scopes requested at sign-in |
+| `GITHUB_SCOPES` | var | `user public_repo` | OAuth scopes requested at sign-in |
 
 The cron (`17 9 * * *` UTC) refreshes repo metadata and records a star-count snapshot for up to 3,000 repos per run, your stars and your own repos together, oldest-fetched first. That keeps it under the Workers free-plan subrequest limit. Trending starts working once there are a few days of snapshots; until then, it falls back to stars per day since each repo was created.
 

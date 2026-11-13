@@ -24,7 +24,7 @@
   "observability": { "enabled": true },
   "vars": {
     "CLEF_MODEL": "clef-flash",
-    "GITHUB_SCOPES": "read:user public_repo"
+    "GITHUB_SCOPES": "user public_repo"
   }
   // Secrets (wrangler secret put …): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ALLOWED_USERS
 }

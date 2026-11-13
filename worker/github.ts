@@ -46,7 +46,12 @@ export async function gql<T>(
   if (body.errors?.length) {
     const scopes = body.errors.find((e) => e.type === 'INSUFFICIENT_SCOPES')
     if (scopes) {
-      throw new GitHubError(403, `Missing GitHub permission: ${scopes.message}`)
+      // GitHub's message lists the scopes the field needs: "requires one of the following scopes: ['user']".
+      const needed = /following scopes: \[([^\]]*)\]/.exec(scopes.message)?.[1]?.replace(/'/g, '')
+      throw new GitHubError(
+        403,
+        `StarTune's GitHub access is missing the ${needed ? `"${needed}" ` : ''}permission this needs. Sign out and sign in again to grant it (with a personal access token, add the scope to the token first).`,
+      )
     }
     if (!opts.allowPartial || !body.data) {
       throw new GitHubError(502, body.errors.map((e) => e.message).join('; '))
