@@ -19,6 +19,7 @@ A self-hosted Cloudflare Worker (Hono, `worker/`) serving a React app (`src/`) t
 
 ## Conventions
 
+- A push to `main` deploys to production, so each push bumps `version` in `package.json` (semver: patch for fixes, minor for features).
 - Allow a deliberate lint exception with a file override in `.oxlintrc.json` whose comment gives the reason.
 - `vite.config.ts` resolves its root and aliases to the on-disk path so a build started from `c:\` or `C:\` bundles each module once (otherwise two React Query copies and "No QueryClient set" on every page).
 - The logo mark is defined in `src/components/shell.tsx` and `brand/make_logo.py`, which also writes the favicon, app icons and web manifest into `public/`. Change both, then re-run the script (`brand/README.md`).

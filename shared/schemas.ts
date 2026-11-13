@@ -190,9 +190,15 @@ export type UpdateListsInput = z.infer<typeof UpdateListsInput>
 
 export const RepoIdsInput = z.object({ repoIds })
 
+/**
+ * GitHub's limits on star Lists. Undocumented: found by community testing
+ * (github.com/dead-claudia/github-limits); GitHub raised the count from 16 during the beta.
+ */
+export const LIST_LIMITS = { lists: 32, name: 32, description: 160 } as const
+
 export const CreateListInput = z.object({
-  name: z.string().trim().min(1).max(100),
-  description: z.string().trim().max(500).optional(),
+  name: z.string().trim().min(1).max(LIST_LIMITS.name),
+  description: z.string().trim().max(LIST_LIMITS.description).optional(),
   isPrivate: z.boolean().default(false),
 })
 export type CreateListInput = z.infer<typeof CreateListInput>

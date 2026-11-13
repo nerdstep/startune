@@ -1,4 +1,4 @@
-import type { StarList } from '@shared/schemas'
+import { LIST_LIMITS, type StarList } from '@shared/schemas'
 import { HEALTH_ORDER, listIdeas } from '@shared/scoring'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -94,14 +94,15 @@ function Lists() {
   }
 
   const unlisted = data.stars.filter((s) => s.listIds.length === 0).length
+  const full = data.lists.length >= LIST_LIMITS.lists
 
   return (
     <>
       <PageHeader
         title="Lists"
-        sub={`${data.lists.length} lists · ${unlisted.toLocaleString()} stars without a home`}
+        sub={`${data.lists.length}${full ? ` of ${LIST_LIMITS.lists}` : ''} lists · ${unlisted.toLocaleString()} stars without a home`}
       >
-        <Button onClick={() => setEditing('new')}>
+        <Button onClick={() => setEditing('new')} disabled={full}>
           <PlusIcon /> New list
         </Button>
       </PageHeader>
@@ -187,14 +188,23 @@ function Lists() {
               </div>
             </Card>
           ))}
-          <button
-            onClick={() => setEditing('new')}
-            className="grid min-h-40 place-items-center rounded-lg border border-dashed text-sm text-muted-foreground transition-colors duration-100 hover:border-input hover:bg-accent/40 hover:text-foreground"
-          >
-            <span className="flex items-center gap-2">
-              <PlusIcon className="size-4" /> New list
-            </span>
-          </button>
+          {full ? (
+            <div className="grid min-h-40 place-items-center rounded-lg border border-dashed px-6 text-center text-sm text-muted-foreground">
+              <p>
+                GitHub allows {LIST_LIMITS.lists} lists, and you have them all. Delete one to make
+                room for a new one.
+              </p>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditing('new')}
+              className="grid min-h-40 place-items-center rounded-lg border border-dashed text-sm text-muted-foreground transition-colors duration-100 hover:border-input hover:bg-accent/40 hover:text-foreground"
+            >
+              <span className="flex items-center gap-2">
+                <PlusIcon className="size-4" /> New list
+              </span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -272,7 +282,7 @@ function ListDialog({ list, onClose }: { list: StarList | 'new' | null; onClose:
               id="ln"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              maxLength={100}
+              maxLength={LIST_LIMITS.name}
               required
               autoFocus
             />
@@ -285,7 +295,7 @@ function ListDialog({ list, onClose }: { list: StarList | 'new' | null; onClose:
               id="ld"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              maxLength={500}
+              maxLength={LIST_LIMITS.description}
               placeholder="e.g. Terminal tools and TUIs"
             />
           </div>
@@ -437,6 +447,7 @@ function Ideas() {
   if (!data) {
     return null
   }
+  const full = data.lists.length >= LIST_LIMITS.lists
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
@@ -450,11 +461,12 @@ function Ideas() {
           {ideas.map((idea) => (
             <button
               key={idea.topic}
-              disabled={create.isPending}
+              disabled={create.isPending || full}
               onClick={() =>
                 void (async () => {
                   const list = await create.mutateAsync({
-                    name: idea.topic,
+                    // A topic can run to 50 characters; a list name to 32.
+                    name: idea.topic.slice(0, LIST_LIMITS.name),
                     description: `Repos tagged ${idea.topic}`,
                     isPrivate: false,
                   })
@@ -472,6 +484,12 @@ function Ideas() {
           ))}
           {ideas.length === 0 && (
             <p className="text-sm text-muted-foreground">No clear clusters right now.</p>
+          )}
+          {full && ideas.length > 0 && (
+            <p className="w-full text-sm text-muted-foreground">
+              You're at GitHub's limit of {LIST_LIMITS.lists} lists, so these can't become lists
+              until you delete one.
+            </p>
           )}
         </div>
       </CardContent>

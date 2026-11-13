@@ -1,9 +1,21 @@
+import { LIST_LIMITS } from '@shared/schemas'
 import { CheckIcon, MinusIcon, PlusIcon, SearchIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useCreateList, useDerived, useUpdateLists } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
+/** Why a list named `name` can't be created, by GitHub's limits (LIST_LIMITS), or null if it can. */
+function whyNoNewList(lists: number, name: string): string | null {
+  if (lists >= LIST_LIMITS.lists) {
+    return `GitHub allows ${LIST_LIMITS.lists} lists, and you have them all.`
+  }
+  if (name.length > LIST_LIMITS.name) {
+    return `A list name can be up to ${LIST_LIMITS.name} characters.`
+  }
+  return null
+}
 
 /** Whether none, some or all of the `total` selected repos are in a list. */
 function membershipState(inList: number, total: number): 'none' | 'some' | 'all' {
@@ -53,6 +65,7 @@ export function ListPicker({
   }
   const lists = data.lists.filter((l) => l.name.toLowerCase().includes(q.trim().toLowerCase()))
   const exact = data.lists.some((l) => l.name.toLowerCase() === q.trim().toLowerCase())
+  const blocked = whyNoNewList(data.lists.length, q.trim())
 
   const toggle = (listId: string) => {
     const all = (membership.get(listId) ?? 0) === repoIds.length
@@ -82,7 +95,7 @@ export function ListPicker({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && q.trim() && !exact) {
+              if (e.key === 'Enter' && q.trim() && !exact && !blocked) {
                 void createAndAdd()
               }
               e.stopPropagation()
@@ -123,7 +136,10 @@ export function ListPicker({
             </p>
           )}
         </div>
-        {q.trim() && !exact && (
+        {q.trim() && !exact && blocked && (
+          <p className="mt-1 border-t px-2 pt-2 pb-1 text-xs text-muted-foreground">{blocked}</p>
+        )}
+        {q.trim() && !exact && !blocked && (
           <button
             onClick={() => void createAndAdd()}
             disabled={create.isPending}

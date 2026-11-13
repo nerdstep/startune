@@ -1,6 +1,6 @@
 {
   "name": "startune",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Organize, prune and rediscover your GitHub stars. Runs on your own Cloudflare account.",
   "type": "module",

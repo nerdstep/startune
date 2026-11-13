@@ -1,4 +1,11 @@
-import type { BulkResult, Library, Repo, Star, StarList } from '@shared/schemas'
+import {
+  LIST_LIMITS,
+  type BulkResult,
+  type Library,
+  type Repo,
+  type Star,
+  type StarList,
+} from '@shared/schemas'
 import { cruftRules } from '@shared/scoring'
 
 import type { Backend } from './api'
@@ -586,6 +593,9 @@ export function createDemoBackend(): Backend {
     },
     createList: async (input) => {
       await wait(200)
+      if (state.lists.length >= LIST_LIMITS.lists) {
+        throw new Error(`GitHub allows ${LIST_LIMITS.lists} lists.`)
+      }
       const l: StarList = {
         id: `UL_${Math.random().toString(36).slice(2)}`,
         name: input.name,
