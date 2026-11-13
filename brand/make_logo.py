@@ -13,14 +13,21 @@ Writes, next to this script:
     startune-logo-light.svg   for light backgrounds (mark on its Black Field tile, ink wordmark)
     startune-banner.svg       1280x180 README banner: the social card's field, logo and tagline
     startune-social.svg       1280x640 card (GitHub social preview); export a PNG from it, see README
+
+and, into public/, the favicon and app icons the app links to:
+    favicon.svg, favicon.ico (16/32/48), apple-touch-icon.png (180), icon-192.png, icon-512.png,
+    icon-maskable-512.png, site.webmanifest
 """
 
 from __future__ import annotations
 
 import io
+import json
 import math
+import struct
 from pathlib import Path
 
+import resvg_py
 import uharfbuzz as hb
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
@@ -116,15 +123,92 @@ def mark(colour: str = LIME) -> str:
     )
 
 
-def tile_mark() -> str:
-    """The favicon: the mark inset on a Black Field tile (public/favicon.svg)."""
+def tile_mark(inset: float = 2.0, frame: float = 2.4, rounded: bool = True) -> str:
+    """The mark on a Black Field tile, on the 24-unit grid.
+
+    inset    space from the tile's edge to the mark's box, in grid units
+    frame    the corners' stroke in mark units (2 is the mark's own; 2.4 thickens it for 16-48px)
+    rounded  round the tile's corners concentrically with the frame's; off for full-bleed icons
+             that the platform masks itself (iOS, Android maskable)
+
+    The frame's centreline sits 1 mark unit inside the mark's box, so its rounded outer corner
+    lies `inset + scale` from the tile's corner: the tile's radius matches, and the two curves
+    run parallel instead of a large tile curve hugging a tight frame corner.
+    """
+    scale = (24 - 2 * inset) / 24
+    radius = inset + scale if rounded else 0
     return (
-        f'<rect width="24" height="24" rx="4.5" fill="{BLACK_FIELD}"/>'
-        f'<g transform="translate(2 2) scale(.8333)">'
+        f'<rect width="24" height="24" rx="{num(radius)}" fill="{BLACK_FIELD}"/>'
+        # Scale at 4 places: rounding to 2 would shrink the mark off its whole-pixel grid.
+        f'<g transform="translate({num(inset)} {num(inset)}) scale({scale:.4f})">'
         f'<path d="{MARK_STAR}" fill="{LIME}" stroke="{LIME}" stroke-linejoin="round"/>'
-        f'<path d="{MARK_CORNERS}" fill="none" stroke="{LIME}" stroke-width="2.4"'
+        f'<path d="{MARK_CORNERS}" fill="none" stroke="{LIME}" stroke-width="{num(frame)}"'
         ' stroke-linecap="round" stroke-linejoin="round"/></g>'
     )
+
+
+def icon(inset: float = 2.0, frame: float = 2.4, rounded: bool = True) -> str:
+    """A square app icon SVG (24-unit viewBox) for rendering at any size."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+        f"{tile_mark(inset, frame, rounded)}</svg>\n"
+    )
+
+
+def png(svg_text: str, size: int) -> bytes:
+    return bytes(resvg_py.svg_to_bytes(svg_string=svg_text, width=size, height=size))
+
+
+def ico(images: list[tuple[int, bytes]]) -> bytes:
+    """A .ico holding PNG images (supported by every current browser and Windows)."""
+    head = struct.pack("<HHH", 0, 1, len(images))
+    entries, data = b"", b""
+    offset = 6 + 16 * len(images)
+    for size, image in images:
+        dim = size if size < 256 else 0
+        entries += struct.pack("<BBBBHHII", dim, dim, 0, 0, 1, 32, len(image), offset + len(data))
+        data += image
+    return head + entries + data
+
+
+def app_icons() -> dict[str, bytes]:
+    """The favicon and app icons for public/, as in mostly/apps/global."""
+    small = icon()  # tile with a thickened frame: favicon.svg, .ico, browser tabs
+    large = icon(frame=2.0)  # the mark's own weight once there are pixels to spare
+    # iOS rounds the corners itself (about 22% of the size): more inset keeps the frame clear.
+    apple = icon(inset=4.0, frame=2.0, rounded=False)
+    # Android may crop to a circle of 80% diameter: the whole mark sits inside it.
+    maskable = icon(inset=5.4, frame=2.0, rounded=False)
+    manifest = {
+        "name": "StarTune",
+        "short_name": "StarTune",
+        "description": TAGLINE,
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {
+                "src": "/icon-maskable-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "maskable",
+            },
+        ],
+        "theme_color": BLACK_FIELD,
+        "background_color": BLACK_FIELD,
+        "display": "standalone",
+        "start_url": "/",
+        "scope": "/",
+        "id": "/",
+    }
+    return {
+        "favicon.svg": small.encode(),
+        "favicon.ico": ico([(n, png(small, n)) for n in (16, 32, 48)]),
+        "apple-touch-icon.png": png(apple, 180),
+        "icon-192.png": png(large, 192),
+        "icon-512.png": png(large, 512),
+        "icon-maskable-512.png": png(maskable, 512),
+        "site.webmanifest": (json.dumps(manifest, indent=2) + "\n").encode(),
+    }
 
 
 def lockup(geist: Geist, word_fill: str, tile: bool = False) -> tuple[str, float]:
@@ -271,6 +355,10 @@ def main() -> None:
     for name, text in files.items():
         (HERE / name).write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote brand/{name} ({len(text):,} bytes)")
+    public = HERE.parent / "public"
+    for name, data in app_icons().items():
+        (public / name).write_bytes(data)
+        print(f"wrote public/{name} ({len(data):,} bytes)")
 
 
 if __name__ == "__main__":

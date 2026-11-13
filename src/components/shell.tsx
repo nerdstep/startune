@@ -45,8 +45,8 @@ const MOBILE = ['/', '/stars', '/triage', '/trending', '/lists']
 /**
  * The scanned star: a regular five-point star inside scanner corners. Drawn on a 24-unit grid so
  * the 2-unit frame lands on whole pixels at 24px, with the star's box centred in the frame
- * (gaps 3.7 across, 4.0 down; a regular star is a touch wider than tall). Keep public/favicon.svg
- * in step.
+ * (gaps 3.7 across, 4.0 down; a regular star is a touch wider than tall). Keep brand/make_logo.py
+ * in step: it draws the same mark for the brand files, favicon and app icons.
  */
 const MARK_STAR =
   'M12 6.48 13.61 10.36 17.8 10.7 14.61 13.43 15.59 17.52 12 15.33 8.41 17.52 9.39 13.43 6.2 10.7 10.39 10.36Z'

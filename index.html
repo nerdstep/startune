@@ -2,11 +2,63 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#050607" />
-    <meta name="description" content="Organize, prune and rediscover your GitHub stars." />
     <title>StarTune</title>
+    <meta
+      name="description"
+      content="Bring your GitHub stars into focus: sort them into Lists, clear out the dead ones, find the gems you forgot about, and watch your own repos grow."
+    />
+    <meta name="application-name" content="StarTune" />
+    <meta name="apple-mobile-web-app-title" content="StarTune" />
+    <meta name="theme-color" content="#050607" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Each install is someone's own: keep it out of search results. -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!--
+      Link previews. Every install serves this same file without knowing its own domain, so the
+      image is the social card in the public repo (link previewers need an absolute URL), and
+      og:url / canonical are left out. Regenerate the card with brand/make_logo.py.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="StarTune" />
+    <meta property="og:title" content="StarTune: Bring your stars into focus." />
+    <meta
+      property="og:description"
+      content="Sort your GitHub stars into Lists, clear out the dead ones, find the gems you forgot about, and watch your own repos grow. Self-hosted on Cloudflare."
+    />
+    <meta property="og:locale" content="en_US" />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/nerdstep/startune/main/brand/startune-social.png"
+    />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta
+      property="og:image:alt"
+      content="The StarTune logo, a lime star in scanner corners, and the line Bring your stars into focus, over a field of coloured points."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@n3rdstep" />
+    <meta name="twitter:title" content="StarTune: Bring your stars into focus." />
+    <meta
+      name="twitter:description"
+      content="Sort your GitHub stars into Lists, clear out the dead ones, find the gems you forgot about, and watch your own repos grow. Self-hosted on Cloudflare."
+    />
+    <meta
+      name="twitter:image"
+      content="https://raw.githubusercontent.com/nerdstep/startune/main/brand/startune-social.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="The StarTune logo, a lime star in scanner corners, and the line Bring your stars into focus, over a field of coloured points."
+    />
   </head>
   <body>
     <div id="root"></div>
