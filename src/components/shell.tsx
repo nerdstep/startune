@@ -220,6 +220,9 @@ function UserMenu() {
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname })
   const { sync } = useSyncContext()
+  // On the first-run screen the scan field is the progress indicator, so the global bar stays out.
+  const { data } = useDerived()
+  const firstRun = data?.stars.length === 0
   const active = (to: string) => (to === '/' ? path === '/' : path.startsWith(to))
   const item = (on: boolean) =>
     cn(
@@ -230,7 +233,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     )
   return (
     <div className="min-h-dvh md:pl-56">
-      <SyncBar progress={sync.progress} />
+      {!firstRun && <SyncBar progress={sync.progress} />}
       {/* Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r bg-background px-3 pb-3 md:flex">
         <Logo home className="h-14 px-2.5" />

@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   ArrowRightIcon,
   BrainCircuitIcon,
+  RefreshCwIcon,
   ShuffleIcon,
   StarIcon,
   TrendingUpIcon,
@@ -11,7 +12,7 @@ import { useMemo, useState } from 'react'
 
 import { PageHeader } from '@/components/bits'
 import { useOpenRepo } from '@/components/repo'
-import { SyncButton } from '@/components/shell'
+import { ScanField } from '@/components/scan-field'
 import { DORMANT_ALPHA, StarField } from '@/components/star-field'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -412,28 +413,29 @@ function AiCallout() {
 
 function FirstRun() {
   const { sync } = useSyncContext()
+  const { running, label, pct, done, total } = sync.progress
   return (
-    <div className="grid min-h-[60dvh] place-items-center text-center">
-      <div className="max-w-md">
-        <svg viewBox="0 0 32 32" aria-hidden className="mx-auto mb-6 size-10">
-          <path
-            d="M16 3l3.4 8.2 8.6.7-6.6 5.6 2 8.5L16 21.4 8.6 26l2-8.5L4 11.9l8.6-.7z"
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <h1 className="text-2xl font-semibold tracking-tight">Chart your stars</h1>
-        <p className="mt-2 text-muted-foreground">
-          StarTune reads your stars and Lists from GitHub and plots every one. A few thousand stars
-          take under a minute.
+    <div className="grid min-h-[60dvh] place-items-center">
+      <div className="w-full max-w-2xl text-center">
+        <div className="overflow-hidden rounded-lg border bg-card">
+          <ScanField found={done ?? 0} total={total ?? null} scanning={running} />
+        </div>
+        <h1 className="mt-8 text-2xl font-semibold tracking-tight">Chart your stars</h1>
+        <p className="mx-auto mt-2 max-w-md text-muted-foreground">
+          StarTune reads your stars and Lists from GitHub and plots every one.
         </p>
-        <div className="mt-6 flex justify-center">
-          {sync.progress.running ? (
-            <p className="text-sm tabular-nums">{sync.progress.label}</p>
+        <div className="mx-auto mt-6 flex max-w-xs flex-col items-center gap-3">
+          {running ? (
+            <>
+              <p className="text-sm tabular-nums" role="status">
+                {label}
+              </p>
+              <Progress value={pct} className="w-full" />
+            </>
           ) : (
-            <SyncButton />
+            <Button onClick={() => void sync.run()}>
+              <RefreshCwIcon /> Sync my stars
+            </Button>
           )}
         </div>
       </div>

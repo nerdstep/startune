@@ -38,7 +38,8 @@ import { clefModel, daysAgo, HttpError, oauthEnabled, today, type AppEnv } from 
 import * as gh from './github'
 import { valid } from './validate'
 
-const PAGES_PER_STEP = 4
+/** One page (100 stars) per request: the client reports progress (and the first-run scan fills in) every few seconds. */
+const PAGES_PER_STEP = 1
 async function ownList(db: D1Database, userId: string, listId: string) {
   const row = await db
     .prepare(`SELECT 1 FROM lists WHERE id = ?1 AND user_id = ?2`)

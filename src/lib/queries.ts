@@ -350,6 +350,9 @@ export interface Progress {
   running: boolean
   label: string
   pct: number
+  /** Items done so far and the total, when the loop counts them (sync: stars fetched). */
+  done?: number
+  total?: number
 }
 
 const idle: Progress = { running: false, label: '', pct: 0 }
@@ -363,25 +366,29 @@ export function useSync() {
     }
     const runId = crypto.randomUUID()
     let done = 0
+    let total: number | undefined
     let cursor: string | null = null
     setP({ running: true, label: 'Fetching stars…', pct: 2 })
     try {
       for (;;) {
         const step = await backend.sync({ runId, phase: 'stars', cursor })
         done += step.processed
+        total = step.total
         setP({
           running: true,
           label: `Fetched ${done.toLocaleString()} of ${step.total.toLocaleString()} stars`,
           pct: Math.min(85, (done / Math.max(step.total, 1)) * 85),
+          done,
+          total,
         })
         if (step.phase !== 'stars') {
           break
         }
         cursor = step.cursor
       }
-      setP({ running: true, label: 'Syncing lists…', pct: 90 })
+      setP({ running: true, label: 'Syncing lists…', pct: 90, done, total })
       await backend.sync({ runId, phase: 'lists', cursor: null })
-      setP({ running: true, label: 'Tidying up…', pct: 97 })
+      setP({ running: true, label: 'Tidying up…', pct: 97, done, total })
       await backend.sync({ runId, phase: 'finish', cursor: null })
       await qc.invalidateQueries({ queryKey: qk.library })
       toast.success(`Synced ${done.toLocaleString()} stars`)
