@@ -53,6 +53,7 @@ Output tokens aren't billed, so classifying a thousand stars costs very little a
 1. Create a **GitHub OAuth app** at [github.com/settings/developers](https://github.com/settings/developers).
    - Homepage URL: `https://startune.<your-subdomain>.workers.dev`
    - Callback URL: `https://startune.<your-subdomain>.workers.dev/auth/callback`
+   - Leave **Expire user access tokens** checked. StarTune refreshes the 8-hour tokens itself, so a leaked token stops working within hours.
 2. Click **Deploy to Cloudflare** above. It forks the repo, creates the D1 database, and asks for:
    - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: from step 1. If you'd rather sign in with a personal access token, enter `none` for both.
    - `SESSION_SECRET`: any long random string (`openssl rand -base64 32`).

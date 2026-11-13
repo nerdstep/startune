@@ -5,9 +5,15 @@ CREATE TABLE users (
   login TEXT NOT NULL UNIQUE COLLATE NOCASE,
   name TEXT,
   avatar_url TEXT,
-  token_enc TEXT NOT NULL,           -- AES-GCM encrypted GitHub token
+  token_enc TEXT NOT NULL,           -- AES-GCM encrypted GitHub access token
+  -- Expiring tokens (an OAuth app with "Expire user access tokens": 8-hour access, 6-month
+  -- refresh). Tokens that don't expire (personal access tokens, expiry off) leave these NULL.
+  refresh_enc TEXT,                  -- AES-GCM encrypted refresh token
+  token_expires_at INTEGER,          -- access token expiry (unix ms)
+  refresh_expires_at INTEGER,        -- refresh token expiry (unix ms)
   scopes TEXT,
   last_synced_at TEXT,
+  own_synced_at TEXT,                -- last read of the user's own repos (Your repos)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -54,6 +60,21 @@ CREATE TABLE stars (
   PRIMARY KEY (user_id, repo_id)
 );
 CREATE INDEX stars_repo ON stars(repo_id);
+
+-- Your repos: the public repos each user owns, with upkeep facts and charted star history.
+-- Repo metadata itself lives in `repos` (shared), so the daily cron snapshots these too.
+CREATE TABLE own_repos (
+  user_id TEXT NOT NULL,
+  repo_id TEXT NOT NULL,
+  upkeep TEXT NOT NULL DEFAULT '{}',   -- JSON Upkeep
+  history TEXT,                        -- JSON [[unix ms, cumulative stars], ...], null until charted
+  exact_since INTEGER,                 -- history is exact from this time (ms); sampled before
+  recent TEXT NOT NULL DEFAULT '[]',   -- JSON Stargazer[], newest first
+  charted_at TEXT,
+  sync_run TEXT,
+  PRIMARY KEY (user_id, repo_id)
+);
+CREATE INDEX own_repos_repo ON own_repos(repo_id);
 
 CREATE TABLE lists (
   id TEXT PRIMARY KEY,               -- GitHub UserList node id

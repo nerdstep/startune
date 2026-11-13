@@ -1,7 +1,7 @@
-import { decrypt } from './crypto'
 import { saveRepos } from './db'
 import { daysAgo, today, type Bindings } from './env'
 import { reposByIds } from './github'
+import { githubToken, tokenColumnList, type TokenRow } from './tokens'
 
 /** GitHub calls per cron run. 100 repos each; keeps free-plan subrequest limits in mind. */
 const MAX_CALLS = 30
@@ -13,9 +13,8 @@ const MAX_CALLS = 30
 export async function dailyRefresh(env: Bindings) {
   const db = env.DB
   const day = today()
-  const users = (
-    await db.prepare(`SELECT id, token_enc FROM users`).all<{ id: string; token_enc: string }>()
-  ).results
+  const users = (await db.prepare(`SELECT id, ${tokenColumnList()} FROM users`).all<TokenRow>())
+    .results
   const done = new Set<string>()
   let calls = 0
 
@@ -25,7 +24,9 @@ export async function dailyRefresh(env: Bindings) {
     }
     let token: string
     try {
-      token = await decrypt(env.SESSION_SECRET, u.token_enc)
+      // Refreshes an expiring token. Skips the user if their sign-in has run out (their sessions
+      // end) or GitHub can't be reached (they keep their sessions; the next run tries again).
+      token = await githubToken(env, u)
     } catch {
       continue
     }

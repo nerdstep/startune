@@ -2,9 +2,19 @@ import { Hono, type Context, type MiddlewareHandler } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
 import { TokenLoginInput } from '../shared/schemas'
-import { decrypt, encrypt, randomToken, sha256Hex } from './crypto'
+import { randomToken, sha256Hex } from './crypto'
 import { HttpError, oauthEnabled, type AppEnv, type Bindings } from './env'
 import { rest, viewer } from './github'
+import {
+  githubToken,
+  requestGrant,
+  storedTokens,
+  TOKEN_COLUMNS,
+  tokenColumnList,
+  tokenValues,
+  type TokenGrant,
+  type TokenRow,
+} from './tokens'
 import { valid } from './validate'
 
 /** Why OAuth sign-in failed, as passed to the sign-in page (src/components/login.tsx). */
@@ -41,8 +51,8 @@ function canSignIn(c: Context<AppEnv>, login: string): boolean {
   return allow.length > 0 ? allow.includes(login.toLowerCase()) : isLocal(c)
 }
 
-async function signIn(c: Context<AppEnv>, token: string, scopes: string | null) {
-  const v = await viewer(token)
+async function signIn(c: Context<AppEnv>, grant: TokenGrant) {
+  const v = await viewer(grant.accessToken)
   if (!canSignIn(c, v.login)) {
     throw new HttpError(
       403,
@@ -51,14 +61,16 @@ async function signIn(c: Context<AppEnv>, token: string, scopes: string | null) 
         : "This StarTune install doesn't have an owner yet. Set ALLOWED_USERS to your GitHub username, then sign in.",
     )
   }
-  const tokenEnc = await encrypt(c.env.SESSION_SECRET, token)
+  const tokens = await storedTokens(c.env.SESSION_SECRET, grant)
   const sid = randomToken()
+  const updateTokens = TOKEN_COLUMNS.map((col) => `${col}=excluded.${col}`).join(', ')
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO users (id, login, name, avatar_url, token_enc, scopes) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-       ON CONFLICT(id) DO UPDATE SET login=excluded.login, name=excluded.name, avatar_url=excluded.avatar_url,
-         token_enc=excluded.token_enc, scopes=excluded.scopes`,
-    ).bind(v.id, v.login, v.name, v.avatarUrl, tokenEnc, scopes),
+      `INSERT INTO users (id, login, name, avatar_url, scopes, ${tokenColumnList()})
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+       ON CONFLICT(id) DO UPDATE SET login=excluded.login, name=excluded.name,
+         avatar_url=excluded.avatar_url, scopes=excluded.scopes, ${updateTokens}`,
+    ).bind(v.id, v.login, v.name, v.avatarUrl, grant.scopes, ...tokenValues(tokens)),
     c.env.DB.prepare(`INSERT INTO sessions (id, user_id, expires_at) VALUES (?1, ?2, ?3)`).bind(
       await sha256Hex(sid),
       v.id,
@@ -121,26 +133,15 @@ export const auth = new Hono<AppEnv>()
       return fail('expired')
     }
 
-    const res = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'StarTune',
-      },
-      body: JSON.stringify({
-        client_id: c.env.GITHUB_CLIENT_ID,
-        client_secret: c.env.GITHUB_CLIENT_SECRET,
-        code,
-        redirect_uri: new URL('/auth/callback', c.req.url).toString(),
-      }),
+    const grant = await requestGrant(c.env, {
+      code,
+      redirect_uri: new URL('/auth/callback', c.req.url).toString(),
     })
-    const body = (await res.json()) as { access_token?: string; scope?: string }
-    if (!body.access_token) {
-      return fail('no_token')
+    if (grant.kind !== 'granted') {
+      return fail(grant.kind === 'refused' ? 'no_token' : 'failed')
     }
     try {
-      await signIn(c, body.access_token, body.scope ?? null)
+      await signIn(c, grant.grant)
     } catch (e) {
       if (e instanceof HttpError && e.status === 403) {
         return fail(allowList(c.env).length > 0 ? 'not_allowed' : 'no_owner')
@@ -156,7 +157,13 @@ export const auth = new Hono<AppEnv>()
     if (check.status === 401) {
       throw new HttpError(401, 'GitHub rejected that token.')
     }
-    await signIn(c, token, check.headers.get('x-oauth-scopes'))
+    await signIn(c, {
+      accessToken: token,
+      scopes: check.headers.get('x-oauth-scopes'),
+      refreshToken: null,
+      expiresAt: null,
+      refreshExpiresAt: null,
+    })
     return c.json({ ok: true })
   })
   .post('/logout', async (c) => {
@@ -176,18 +183,18 @@ export async function currentUser(c: Context<AppEnv>) {
     return null
   }
   const row = await c.env.DB.prepare(
-    `SELECT u.id, u.login, u.name, u.avatar_url, u.token_enc, s.expires_at
+    `SELECT u.id, u.login, u.name, u.avatar_url, ${tokenColumnList('u')}, s.expires_at
      FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?1`,
   )
     .bind(await sha256Hex(sid))
-    .first<{
-      id: string
-      login: string
-      name: string | null
-      avatar_url: string | null
-      token_enc: string
-      expires_at: number
-    }>()
+    .first<
+      TokenRow & {
+        login: string
+        name: string | null
+        avatar_url: string | null
+        expires_at: number
+      }
+    >()
   if (!row || row.expires_at < Date.now()) {
     return null
   }
@@ -206,12 +213,9 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!row) {
     throw new HttpError(401, 'Not signed in')
   }
-  let token: string
-  try {
-    token = await decrypt(c.env.SESSION_SECRET, row.token_enc)
-  } catch {
-    throw new HttpError(401, "Session can't be decrypted (SESSION_SECRET changed?). Sign in again.")
-  }
+  // Refreshes an expiring token first. Throws 401 (and ends the sessions) when the user has to
+  // sign in again, or 502 when GitHub can't be reached.
+  const token = await githubToken(c.env, row)
   c.set('user', { id: row.id, login: row.login, token })
   await next()
 }

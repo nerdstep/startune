@@ -127,12 +127,14 @@
       }
     },
     {
-      // Sequential on purpose: cursor pagination, GitHub's rate limits, and the Worker's subrequest budget.
+      // Sequential on purpose: cursor pagination, GitHub's rate limits, the Worker's subrequest
+      // budget, and polling for a concurrent token refresh to land (worker/tokens.ts).
       "files": [
         "worker/api.ts",
         "worker/cron.ts",
         "worker/db.ts",
         "worker/github.ts",
+        "worker/tokens.ts",
         "src/lib/mine.ts",
         "src/lib/queries.ts"
       ],
