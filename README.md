@@ -101,11 +101,12 @@ npm run dev                              # Workers AI is remote, so this needs `
 CF_LOCAL_ONLY=1 npm run dev              # fully offline (Clef calls will fail)
 npm run seed:local                       # fake signed-in user; cookie st_session=local-test-session-cookie
 npm test                                 # vitest: scoring, own-repo rules, Clef request building, crypto
-npm run lint                             # typecheck, oxfmt check, oxlint (+ type-aware rules)
-npm run lint:fix                         # oxlint fixes, then oxfmt
+npm run lint                             # typecheck, oxfmt check, oxlint (+ type-aware rules), markdownlint
+npm run lint:md                          # markdownlint only
+npm run lint:fix                         # oxlint fixes, oxfmt, markdownlint fixes
 ```
 
-Formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter) and linting is [Oxlint](https://oxc.rs/docs/guide/usage/linter) with the `@shadcn/lint` design-token rules; VS Code applies both on save with the recommended Oxc extension.
+Formatting is [oxfmt](https://oxc.rs/docs/guide/usage/formatter) and linting is [Oxlint](https://oxc.rs/docs/guide/usage/linter) with the `@shadcn/lint` design-token rules; VS Code applies both on save with the recommended Oxc extension. Markdown is checked by [markdownlint](https://github.com/DavidAnson/markdownlint-cli2), with rules in `.markdownlint.jsonc` that the recommended markdownlint extension also reads.
 
 ## Architecture
 

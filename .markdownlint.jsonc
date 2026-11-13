@@ -1,0 +1,22 @@
+// Rules for markdownlint, shared by the VS Code extension and `npm run lint:md`.
+// Starting point: the mostly monorepo's config.
+{
+  // Prose is wrapped by the editor, not by hand.
+  "line_length": false,
+  // Repeated headings are fine in different sections (e.g. "Usage" under two features).
+  "no-duplicate-heading": {
+    "siblings_only": true
+  },
+  // Only a top-level `title:` in front matter is the page title. DESIGN.md's front matter has a
+  // `typography.title` token, which the default pattern (any indent) mistakes for one.
+  "single-title": {
+    "front_matter_title": "^title\\s*[:=]"
+  },
+  "first-line-heading": {
+    "front_matter_title": "^title\\s*[:=]"
+  },
+  // The README's theme-aware logo needs <picture>; Markdown images can't switch with the theme.
+  "no-inline-html": {
+    "allowed_elements": ["h1", "picture", "source", "img"]
+  }
+}

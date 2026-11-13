@@ -1,0 +1,5 @@
+// Which files `npm run lint:md` checks; the rules live in .markdownlint.jsonc.
+{
+  // Skip everything git ignores (node_modules, dist, .impeccable, …).
+  "gitignore": true
+}
